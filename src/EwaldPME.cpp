@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -18,7 +19,7 @@
 
 using namespace std;
 
-EwaldPME::EwaldPME(StaticVals &stat, System &sys) : Ewald(stat, sys) {
+EwaldPME::EwaldPME(StaticVals &stat, System &sys) : Ewald(stat, sys) {  
   pmeOrder = ff.pmeSplineOrder;
   refreshInterval = ff.pmeRefreshFreq;
 
@@ -89,6 +90,15 @@ EwaldPME::~EwaldPME() {
 void EwaldPME::Init() { Ewald::Init(); }
 
 void EwaldPME::UpdateVectorsAndRecipTerms(bool output) {
+
+/*uvrt timer
+  auto start = chrono::steady_clock::now(); */
+
+#ifdef _OPENMP
+#pragma omp parallel for default(none) \
+	firstprivate(output)
+#endif
+
   for (uint b = 0; b < BOXES_WITH_U_NB; ++b) {
     RecipInit(b, currentAxes);
     BoxReciprocalSetup(b, currentCoords);
@@ -116,6 +126,13 @@ void EwaldPME::UpdateVectorsAndRecipTerms(bool output) {
       }
     }
   }
+
+/*uvrt timer
+auto end = chrono::steady_clock::now();
+auto time_uvrt = end - start;
+auto time_uvrt_us = chrono::duration_cast<chrono::microseconds>(time_uvrt);
+
+cout << "UpdateVectorsAndRecipTerms: " << time_uvrt_us.count() << " us. Box: "  << endl; */
 }
 
 void EwaldPME::AllocMem() {
@@ -145,9 +162,12 @@ void EwaldPME::AllocMem() {
   }
 }
 
-void EwaldPME::BoxReciprocalSetup(uint box, XYZArray const &molCoords) {
+void EwaldPME::BoxReciprocalSetup(const uint box, XYZArray const &molCoords) {
   if (box >= BOXES_WITH_U_NB)
     return;
+
+//brs timer
+auto start = chrono::steady_clock::now();
 
   int Kx = K_trial[box][0], Ky = K_trial[box][1], Kz = K_trial[box][2];
   bool kChanged = (Kx != K_allocated[box][0] || Ky != K_allocated[box][1] ||
@@ -216,11 +236,20 @@ void EwaldPME::BoxReciprocalSetup(uint box, XYZArray const &molCoords) {
 
   MoleculeLookup::box_iterator thisMol = molLookup.BoxBegin(box);
   MoleculeLookup::box_iterator end = molLookup.BoxEnd(box);
+
   while (thisMol != end) {
     uint m = *thisMol;
     double lambda = GetLambdaCoef(m, box);
     const MoleculeKind &kind = mols.GetKind(m);
     uint start = mols.MolStart(m);
+
+#ifdef _OPENMP
+//#pragma omp parallel for default(none) \
+	firstprivate(box, lambda, Kx, Ky, Kz, start, pmeOrder) \
+	shared(trialAxes, molCoords, kind) \
+	reduction(+: chargeMesh[:BOX_TOTAL][:N])
+#endif
+
     for (uint a = 0; a < kind.NumAtoms(); ++a) {
       double charge = kind.AtomCharge(a) * lambda;
       XYZ r = molCoords.Get(start + a);
@@ -258,10 +287,20 @@ void EwaldPME::BoxReciprocalSetup(uint box, XYZArray const &molCoords) {
 
   fftw_execute(fwdPlan[box]);
   tempEnergyRecip[box] = SumMeshEnergy(box, S_trial[box]);
+
+//brs timer
+  auto end_timer = chrono::steady_clock::now();
+  auto time_brs = end_timer - start;
+  auto time_brs_us = chrono::duration_cast<chrono::microseconds>(time_brs);
+
+  cout << "BoxReciprocalSetup time: " << time_brs_us.count() << " us. Box: " << box << endl;
 }
 
 void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
                                    double *gf_out) {
+/*green timer
+  auto start = chrono::steady_clock::now(); */
+
   int Kx = K_trial[box][0], Ky = K_trial[box][1], Kz = K_trial[box][2];
   int halfKz = Kz / 2 + 1;
   double Lx = axes.axis.Get(box).x, Ly = axes.axis.Get(box).y,
@@ -271,6 +310,13 @@ void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
   vector<double> bx = bspline::BSplineModuli(Kx, pmeOrder);
   vector<double> by = bspline::BSplineModuli(Ky, pmeOrder);
   vector<double> bz = bspline::BSplineModuli(Kz, pmeOrder);
+
+#ifdef _OPENMP
+#pragma omp parallel for default(none) \
+	firstprivate(Kx, Ky, Kz, halfKz, Lx, Ly, Lz, gf_out, vol, pre) \
+	shared(bx, by, bz)
+#endif
+
   for (int ix = 0; ix < Kx; ++ix) {
     int kx_int = (ix <= Kx / 2) ? ix : ix - Kx;
     double kx = 2.0 * M_PI * kx_int / Lx;
@@ -289,10 +335,19 @@ void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
       }
     }
   }
+/*green timer
+  auto end = chrono::steady_clock::now();
+  auto time_green = end - start;
+  auto time_green_us = chrono::duration_cast<chrono::microseconds>(time_green);
+
+  cout << "UpdateGreenFunction time: " << time_green_us.count() << " us. Box: " << box << endl; */
 }
 
 double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
-                               bool useTrial) const {
+                               bool useTrial) const {  
+ /*SME timer
+  auto start = chrono::steady_clock::now(); */
+
   int Kx = useTrial ? K_trial[box][0] : K[box][0];
   int Ky = useTrial ? K_trial[box][1] : K[box][1];
   int Kz = useTrial ? K_trial[box][2] : K[box][2];
@@ -301,6 +356,14 @@ double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
   int halfKz = Kz / 2 + 1;
   double energy = 0.0, wT11 = 0.0, wT22 = 0.0, wT33 = 0.0;
   double constVal = 1.0 / (4.0 * ff.alpha[box] * ff.alpha[box]);
+
+#ifdef _OPENMP
+#pragma omp parallel for default(none) \
+	shared(S, virial) \
+	firstprivate(box, Kx, Ky, Kz, gf, axes, halfKz, constVal) \
+	reduction(+: energy, wT11, wT22, wT33)
+#endif
+
   for (int i = 0; i < Kx * Ky * halfKz; ++i) {
     int iz = i % halfKz, iy_iz = i / halfKz, ix = iy_iz / Ky, iy = iy_iz % Ky;
     if (ix == 0 && iy == 0 && iz == 0)
@@ -328,22 +391,34 @@ double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
     virial->recipTens[2][2] = wT33;
     virial->recip = wT11 + wT22 + wT33;
   }
+
+/*SME timer
+  auto end = chrono::steady_clock::now();
+  auto time_sme = end - start;
+  auto time_sme_us = chrono::duration_cast<chrono::microseconds>(time_sme);
+
+  cout << "SumMeshEnergy time: " << time_sme_us.count() << " us. Box: " << box << endl; */
+
   return energy;
 }
 
 void EwaldPME::UpdatePotentialMesh(uint box) {
   if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
     return;
+
   int nk = K[box][0] * K[box][1] * (K[box][2] / 2 + 1);
+
   for (int i = 0; i < nk; ++i) {
     S_trial[box][i][0] = greenFunc[box][i] * S_ref[box][i][0];
     S_trial[box][i][1] = greenFunc[box][i] * S_ref[box][i][1];
   }
+
   fftw_execute(bwdPlan[box]);
 }
 
 void EwaldPME::UpdateAtomInMesh(uint box, const double *charges, uint nAtoms,
-                                const XYZArray &coords, double sign) {
+                                const XYZArray &coords, double sign) 
+{
   // Use committed K dims (not K_trial) for consistency with ComputeDeltaSsq
   int Kx = K[box][0], Ky = K[box][1], Kz = K[box][2];
   for (uint i = 0; i < nAtoms; ++i) {
@@ -416,6 +491,9 @@ double EwaldPME::ComputeDeltaSsq(uint box, const XYZArray *newCoords,
                                  double sign_new, const XYZArray *oldCoords,
                                  double sign_old, const uint *atomIndices,
                                  const double *charges, uint nAtoms) const {
+/*CDS Timer
+  auto start = chrono::steady_clock::now(); */
+
   if (nAtoms == 0)
     return 0.0;
   int Kx = K[box][0], Ky = K[box][1], Kz = K[box][2];
@@ -460,7 +538,16 @@ double EwaldPME::ComputeDeltaSsq(uint box, const XYZArray *newCoords,
   };
   add(newCoords, sign_new);
   add(oldCoords, sign_old);
+
   fftw_execute(scratchPlan[box]);
+
+/*CDS Timer
+  auto end = chrono::steady_clock::now();
+  auto time_cds = end - start;
+  auto time_cds_us = chrono::duration_cast<chrono::microseconds>(time_cds);
+
+  cout << "ComputeDeltaSsq time: " << time_cds_us.count() << " us. Box: " << box << endl; */
+
   return SumMeshEnergy(box, S_delta[box], nullptr, false);
 }
 
@@ -647,6 +734,7 @@ void EwaldPME::exgMolCache() {
         int nk = K[b][0] * K[b][1] * (K[b][2] / 2 + 1);
         memcpy(S_ref[b], S_trial[b], sizeof(fftw_complex) * nk);
         memcpy(greenFunc[b], greenFunc_trial[b], sizeof(double) * nk);
+
         UpdatePotentialMesh(b);
       }
     }
@@ -666,8 +754,11 @@ void EwaldPME::CopyRecip(uint box) { return; }
 void EwaldPME::backupMolCache() { return; }
 
 void EwaldPME::BoxForceReciprocal(XYZArray const &molCoords,
-                                  XYZArray &atomForceRec, XYZArray &molForceRec,
-                                  uint box) {
+                                  XYZArray &atomForceRec, XYZArray &molForceRec, uint box) {
+
+//bfr timer
+//auto start_t = chrono::steady_clock::now();
+
   if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
     return;
   UpdatePotentialMesh(box);
@@ -733,6 +824,13 @@ void EwaldPME::BoxForceReciprocal(XYZArray const &molCoords,
     molForceRec.Set(m, f_mol);
     ++thisMol;
   }
+
+/*bfr timer
+auto end_t = chrono::steady_clock::now();
+auto time_bfr = end_t - start_t;
+auto time_bfr_us = chrono::duration_cast<chrono::milliseconds>(time_bfr);
+
+cout << "BoxForceReciprocal time: " << time_bfr_us.count() << " us. Box: " << box << endl; */
 }
 
 double EwaldPME::MolReciprocal(XYZArray const &molCoords, const uint molIndex,
@@ -796,6 +894,7 @@ double EwaldPME::SwapDestRecip(const cbmc::TrialMol &newMol, const uint box,
 
 double EwaldPME::SwapSourceRecip(const cbmc::TrialMol &oldMol, const uint box,
                                  const int molIndex) {
+
   if (box >= BOXES_WITH_U_NB)
     return 0.0;
   uint length = oldMol.GetKind().NumAtoms();
@@ -820,7 +919,7 @@ double EwaldPME::SwapSourceRecip(const cbmc::TrialMol &oldMol, const uint box,
   cachedSignOld[box] = -1.0;
   cachedNAtoms[box] = length;
 
-  return dE;
+ return dE;
 }
 
 double EwaldPME::ChangeLambdaRecip(XYZArray const &molCoords,
