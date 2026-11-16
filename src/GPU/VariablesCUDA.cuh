@@ -83,6 +83,12 @@ public:
     gpu_mForcez = NULL;
     gpu_startAtomIdx = NULL;
 
+    //HP3778
+    gpu_bx = nullptr;
+    gpu_by = nullptr;
+    gpu_bz = nullptr;
+    gpu_finalVal = nullptr;
+
     // setting lambda values to null
     gpu_molIndex = NULL;
     gpu_lambdaVDW = NULL;
@@ -128,7 +134,11 @@ public:
   double *gpu_rMin, *gpu_expConst, *gpu_rMaxSq;
 
   double *gpu_r_k_x, *gpu_r_k_y, *gpu_r_k_z;
-  double *gpu_t_k_x, *gpu_t_k_y, *gpu_t_k_z;
+  double *gpu_t_k_x, *gpu_t_k_y, *gpu_t_k_z; 
+
+  //HP3778
+  double *gpu_bx, *gpu_by, *gpu_bz;
+  double *gpu_finalVal;
 
   // lambda structure
   int *gpu_molIndex;

@@ -1,6 +1,6 @@
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -12,6 +12,11 @@
 #include "NumLib.h"
 #include "StaticVals.h"
 #include "System.h"
+#ifdef GOMC_CUDA
+#include "CalculatePMECUDAKernel.cuh"
+#include "CalculateForceCUDAKernel.cuh"
+#include "ConstantDefinitionsCUDAKernel.cuh"
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -19,7 +24,7 @@
 
 using namespace std;
 
-EwaldPME::EwaldPME(StaticVals &stat, System &sys) : Ewald(stat, sys) {  
+EwaldPME::EwaldPME(StaticVals &stat, System &sys) : Ewald(stat, sys) {
   pmeOrder = ff.pmeSplineOrder;
   refreshInterval = ff.pmeRefreshFreq;
 
@@ -54,28 +59,17 @@ EwaldPME::EwaldPME(StaticVals &stat, System &sys) : Ewald(stat, sys) {
 
 EwaldPME::~EwaldPME() {
   for (uint b = 0; b < BOX_TOTAL; b++) {
-    if (S_ref && S_ref[b])
-      fftw_free(S_ref[b]);
-    if (greenFunc && greenFunc[b])
-      delete[] greenFunc[b];
-    if (chargeMesh && chargeMesh[b])
-      delete[] chargeMesh[b];
-    if (potentialMesh && potentialMesh[b])
-      delete[] potentialMesh[b];
-    if (scratchMesh && scratchMesh[b])
-      delete[] scratchMesh[b];
-    if (S_delta && S_delta[b])
-      fftw_free(S_delta[b]);
-    if (S_trial && S_trial[b])
-      fftw_free(S_trial[b]);
-    if (greenFunc_trial && greenFunc_trial[b])
-      delete[] greenFunc_trial[b];
-    if (fwdPlan[b])
-      fftw_destroy_plan(fwdPlan[b]);
-    if (bwdPlan[b])
-      fftw_destroy_plan(bwdPlan[b]);
-    if (scratchPlan[b])
-      fftw_destroy_plan(scratchPlan[b]);
+    if (S_ref && S_ref[b]) fftw_free(S_ref[b]);
+    if (greenFunc && greenFunc[b]) delete[] greenFunc[b];
+    if (chargeMesh && chargeMesh[b]) delete[] chargeMesh[b];
+    if (potentialMesh && potentialMesh[b]) delete[] potentialMesh[b];
+    if (scratchMesh && scratchMesh[b]) delete[] scratchMesh[b];
+    if (S_delta && S_delta[b]) fftw_free(S_delta[b]);
+    if (S_trial && S_trial[b]) fftw_free(S_trial[b]);
+    if (greenFunc_trial && greenFunc_trial[b]) delete[] greenFunc_trial[b];
+    if (fwdPlan[b]) fftw_destroy_plan(fwdPlan[b]);
+    if (bwdPlan[b]) fftw_destroy_plan(bwdPlan[b]);
+    if (scratchPlan[b]) fftw_destroy_plan(scratchPlan[b]);
   }
   delete[] S_ref;
   delete[] greenFunc;
@@ -91,12 +85,15 @@ void EwaldPME::Init() { Ewald::Init(); }
 
 void EwaldPME::UpdateVectorsAndRecipTerms(bool output) {
 
-/*uvrt timer
-  auto start = chrono::steady_clock::now(); */
+  /*uvrt timer
+    auto start = chrono::steady_clock::now(); */
 
+#ifdef GOMC_CUDA
+
+ // CallUpdateVectorsAndRecipTermsGPU();
+#else
 #ifdef _OPENMP
-#pragma omp parallel for default(none) \
-	firstprivate(output)
+#pragma omp parallel for default(none) firstprivate(output)
 #endif
 
   for (uint b = 0; b < BOXES_WITH_U_NB; ++b) {
@@ -126,13 +123,15 @@ void EwaldPME::UpdateVectorsAndRecipTerms(bool output) {
       }
     }
   }
+#endif
 
-/*uvrt timer
-auto end = chrono::steady_clock::now();
-auto time_uvrt = end - start;
-auto time_uvrt_us = chrono::duration_cast<chrono::microseconds>(time_uvrt);
+  /*uvrt timer
+  auto end = chrono::steady_clock::now();
+  auto time_uvrt = end - start;
+  auto time_uvrt_us = chrono::duration_cast<chrono::microseconds>(time_uvrt);
 
-cout << "UpdateVectorsAndRecipTerms: " << time_uvrt_us.count() << " us. Box: "  << endl; */
+  cout << "UpdateVectorsAndRecipTerms: " << time_uvrt_us.count() << " us. Box: "
+  << endl; */
 }
 
 void EwaldPME::AllocMem() {
@@ -163,52 +162,40 @@ void EwaldPME::AllocMem() {
 }
 
 void EwaldPME::BoxReciprocalSetup(const uint box, XYZArray const &molCoords) {
-  if (box >= BOXES_WITH_U_NB)
-    return;
+  if (box >= BOXES_WITH_U_NB) return;
 
   int Kx = K_trial[box][0], Ky = K_trial[box][1], Kz = K_trial[box][2];
   bool kChanged = (Kx != K_allocated[box][0] || Ky != K_allocated[box][1] ||
                    Kz != K_allocated[box][2]);
 
   if (kChanged || fwdPlan[box] == nullptr) {
-    if (fwdPlan[box])
-      fftw_destroy_plan(fwdPlan[box]);
-    if (bwdPlan[box])
-      fftw_destroy_plan(bwdPlan[box]);
-    if (scratchPlan[box])
-      fftw_destroy_plan(scratchPlan[box]);
+    if (fwdPlan[box]) fftw_destroy_plan(fwdPlan[box]);
+    if (bwdPlan[box]) fftw_destroy_plan(bwdPlan[box]);
+    if (scratchPlan[box]) fftw_destroy_plan(scratchPlan[box]);
 
     int N = Kx * Ky * Kz;
     int halfKz = Kz / 2 + 1;
     int N_complex = Kx * Ky * halfKz;
 
-    if (chargeMesh[box])
-      delete[] chargeMesh[box];
+    if (chargeMesh[box]) delete[] chargeMesh[box];
     chargeMesh[box] = new double[N];
-    if (potentialMesh[box])
-      delete[] potentialMesh[box];
+    if (potentialMesh[box]) delete[] potentialMesh[box];
     potentialMesh[box] = new double[N];
-    if (scratchMesh[box])
-      delete[] scratchMesh[box];
+    if (scratchMesh[box]) delete[] scratchMesh[box];
     scratchMesh[box] = new double[N];
 
-    if (S_ref[box])
-      fftw_free(S_ref[box]);
+    if (S_ref[box]) fftw_free(S_ref[box]);
     S_ref[box] = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * N_complex);
-    if (S_delta[box])
-      fftw_free(S_delta[box]);
+    if (S_delta[box]) fftw_free(S_delta[box]);
     S_delta[box] =
         (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * N_complex);
-    if (S_trial[box])
-      fftw_free(S_trial[box]);
+    if (S_trial[box]) fftw_free(S_trial[box]);
     S_trial[box] =
         (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * N_complex);
 
-    if (greenFunc[box])
-      delete[] greenFunc[box];
+    if (greenFunc[box]) delete[] greenFunc[box];
     greenFunc[box] = new double[N_complex];
-    if (greenFunc_trial[box])
-      delete[] greenFunc_trial[box];
+    if (greenFunc_trial[box]) delete[] greenFunc_trial[box];
     greenFunc_trial[box] = new double[N_complex];
 
     fwdPlan[box] =
@@ -276,13 +263,12 @@ void EwaldPME::BoxReciprocalSetup(const uint box, XYZArray const &molCoords) {
 
   fftw_execute(fwdPlan[box]);
   tempEnergyRecip[box] = SumMeshEnergy(box, S_trial[box]);
-
 }
 
 void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
                                    double *gf_out) {
-/*green timer
-  auto start = chrono::steady_clock::now(); */
+  //green timer
+    auto start = chrono::steady_clock::now();
 
   int Kx = K_trial[box][0], Ky = K_trial[box][1], Kz = K_trial[box][2];
   int halfKz = Kz / 2 + 1;
@@ -294,10 +280,15 @@ void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
   vector<double> by = bspline::BSplineModuli(Ky, pmeOrder);
   vector<double> bz = bspline::BSplineModuli(Kz, pmeOrder);
 
+#ifdef GOMC_CUDA
+
+  CallUpdateGreenFunctionGPU(ff.particles->getCUDAVars(), Kx, Ky, Kz, halfKz,
+                             Lx, Ly, Lz, gf_out, vol, pre, bx, by, bz);
+#else
 #ifdef _OPENMP
-#pragma omp parallel for default(none) \
-	firstprivate(Kx, Ky, Kz, halfKz, Lx, Ly, Lz, gf_out, vol, pre) \
-	shared(bx, by, bz)
+#pragma omp parallel for default(none)                                         \
+    firstprivate(Kx, Ky, Kz, halfKz, Lx, Ly, Lz, gf_out, vol, pre)             \
+    shared(bx, by, bz)
 #endif
 
   for (int ix = 0; ix < Kx; ++ix) {
@@ -310,26 +301,27 @@ void EwaldPME::UpdateGreenFunction(uint box, const BoxDimensions &axes,
         double kz = 2.0 * M_PI * iz / Lz;
         double kSq = kx * kx + ky * ky + kz * kz;
         int idx = (ix * Ky + iy) * halfKz + iz;
-        if (kSq == 0)
-          gf_out[idx] = 0.0;
+        if (kSq == 0) gf_out[idx] = 0.0;
         else
           gf_out[idx] = num::qqFact * (4.0 * M_PI / (vol * kSq)) *
                         exp(-pre * kSq) * bx[ix] * by[iy] * bz[iz];
       }
     }
   }
-/*green timer
-  auto end = chrono::steady_clock::now();
-  auto time_green = end - start;
-  auto time_green_us = chrono::duration_cast<chrono::microseconds>(time_green);
+#endif
+  //green timer
+    auto end = chrono::steady_clock::now();
+    auto time_green = end - start;
+    auto time_green_us =
+    chrono::duration_cast<chrono::microseconds>(time_green);
 
-  cout << "UpdateGreenFunction time: " << time_green_us.count() << " us. Box: " << box << endl; */
+    cout << "UpdateGreenFunction time: " << time_green_us.count() << " us. Box: " << box << endl; 
 }
 
 double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
-                               bool useTrial) const {  
- /*SME timer
-  auto start = chrono::steady_clock::now(); */
+                               bool useTrial) const {
+  /*SME timer
+   auto start = chrono::steady_clock::now(); */
 
   int Kx = useTrial ? K_trial[box][0] : K[box][0];
   int Ky = useTrial ? K_trial[box][1] : K[box][1];
@@ -340,17 +332,19 @@ double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
   double energy = 0.0, wT11 = 0.0, wT22 = 0.0, wT33 = 0.0;
   double constVal = 1.0 / (4.0 * ff.alpha[box] * ff.alpha[box]);
 
+#ifdef GOMC_CUDA
+
+ // CallSumMeshEnergyGPU();
+#else
 #ifdef _OPENMP
-#pragma omp parallel for default(none) \
-	shared(S, virial) \
-	firstprivate(box, Kx, Ky, Kz, gf, axes, halfKz, constVal) \
-	reduction(+: energy, wT11, wT22, wT33)
+#pragma omp parallel for default(none) shared(S, virial)                       \
+    firstprivate(box, Kx, Ky, Kz, gf, axes, halfKz, constVal)                  \
+    reduction(+ : energy, wT11, wT22, wT33)
 #endif
 
   for (int i = 0; i < Kx * Ky * halfKz; ++i) {
     int iz = i % halfKz, iy_iz = i / halfKz, ix = iy_iz / Ky, iy = iy_iz % Ky;
-    if (ix == 0 && iy == 0 && iz == 0)
-      continue;
+    if (ix == 0 && iy == 0 && iz == 0) continue;
     double S_sq = S[i][0] * S[i][0] + S[i][1] * S[i][1];
     double weight = (iz == 0 || (Kz % 2 == 0 && iz == Kz / 2)) ? 1.0 : 2.0;
     double G = gf[i], term = 0.5 * weight * G * S_sq;
@@ -368,6 +362,8 @@ double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
       wT33 += term * (1.0 - common * kz_cart * kz_cart);
     }
   }
+
+#endif
   if (virial) {
     virial->recipTens[0][0] = wT11;
     virial->recipTens[1][1] = wT22;
@@ -375,19 +371,19 @@ double EwaldPME::SumMeshEnergy(uint box, fftw_complex *S, Virial *virial,
     virial->recip = wT11 + wT22 + wT33;
   }
 
-/*SME timer
-  auto end = chrono::steady_clock::now();
-  auto time_sme = end - start;
-  auto time_sme_us = chrono::duration_cast<chrono::microseconds>(time_sme);
+  /*SME timer
+    auto end = chrono::steady_clock::now();
+    auto time_sme = end - start;
+    auto time_sme_us = chrono::duration_cast<chrono::microseconds>(time_sme);
 
-  cout << "SumMeshEnergy time: " << time_sme_us.count() << " us. Box: " << box << endl; */
+    cout << "SumMeshEnergy time: " << time_sme_us.count() << " us. Box: " << box
+    << endl; */
 
   return energy;
 }
 
 void EwaldPME::UpdatePotentialMesh(uint box) {
-  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
-    return;
+  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr) return;
 
   int nk = K[box][0] * K[box][1] * (K[box][2] / 2 + 1);
 
@@ -400,8 +396,7 @@ void EwaldPME::UpdatePotentialMesh(uint box) {
 }
 
 void EwaldPME::UpdateAtomInMesh(uint box, const double *charges, uint nAtoms,
-                                const XYZArray &coords, double sign) 
-{
+                                const XYZArray &coords, double sign) {
   // Use committed K dims (not K_trial) for consistency with ComputeDeltaSsq
   int Kx = K[box][0], Ky = K[box][1], Kz = K[box][2];
   for (uint i = 0; i < nAtoms; ++i) {
@@ -474,17 +469,14 @@ double EwaldPME::ComputeDeltaSsq(uint box, const XYZArray *newCoords,
                                  double sign_new, const XYZArray *oldCoords,
                                  double sign_old, const uint *atomIndices,
                                  const double *charges, uint nAtoms) const {
-  if (nAtoms == 0)
-    return 0.0;
+  if (nAtoms == 0) return 0.0;
   int Kx = K[box][0], Ky = K[box][1], Kz = K[box][2];
   fill(scratchMesh[box], scratchMesh[box] + Kx * Ky * Kz, 0.0);
   auto add = [&](const XYZArray *coords, double sign) {
-    if (!coords)
-      return;
+    if (!coords) return;
     double bs_x[20], bs_y[20], bs_z[20];
     for (uint i = 0; i < nAtoms; ++i) {
-      if (particleHasNoCharge[atomIndices[i]])
-        continue;
+      if (particleHasNoCharge[atomIndices[i]]) continue;
       double chg = charges[i] * sign;
       XYZ r = coords->Get(i);
       XYZ s = currentAxes.TransformUnSlant(r, box);
@@ -528,8 +520,7 @@ double EwaldPME::DeltaERecip(uint box, const XYZArray *newCoords,
                              double sign_old, const uint *atomIndices,
                              const double *charges, uint nAtoms,
                              bool updateSRef) {
-  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
-    return 0.0;
+  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr) return 0.0;
   double dE = 0.0;
   if (newCoords)
     for (uint a = 0; a < nAtoms; ++a)
@@ -544,10 +535,8 @@ double EwaldPME::DeltaERecip(uint box, const XYZArray *newCoords,
   dE += ComputeDeltaSsq(box, newCoords, sign_new, oldCoords, sign_old,
                         atomIndices, charges, nAtoms);
   if (updateSRef) {
-    if (oldCoords)
-      UpdateAtomInMesh(box, charges, nAtoms, *oldCoords, sign_old);
-    if (newCoords)
-      UpdateAtomInMesh(box, charges, nAtoms, *newCoords, sign_new);
+    if (oldCoords) UpdateAtomInMesh(box, charges, nAtoms, *oldCoords, sign_old);
+    if (newCoords) UpdateAtomInMesh(box, charges, nAtoms, *newCoords, sign_new);
     fftw_execute(fwdPlan[box]);
     int nk = K[box][0] * K[box][1] * (K[box][2] / 2 + 1);
     memcpy(S_ref[box], S_trial[box], sizeof(fftw_complex) * nk);
@@ -558,15 +547,13 @@ double EwaldPME::DeltaERecip(uint box, const XYZArray *newCoords,
 }
 
 void EwaldPME::BoxReciprocalSums(uint box, XYZArray const &molCoords) {
-  if (box >= BOXES_WITH_U_NB)
-    return;
+  if (box >= BOXES_WITH_U_NB) return;
   RecipInit(box, currentAxes);
   BoxReciprocalSetup(box, molCoords);
 }
 
 double EwaldPME::BoxReciprocal(uint box, bool isNewVolume) const {
-  if (box >= BOXES_WITH_U_NB)
-    return 0.0;
+  if (box >= BOXES_WITH_U_NB) return 0.0;
   return isNewVolume ? tempEnergyRecip[box] : sysPotRef.boxEnergy[box].recip;
 }
 
@@ -575,18 +562,13 @@ void EwaldPME::RecipInit(uint box, BoxDimensions const &axes) {
   trialAxes[box] = axes;
 
   auto nextFFTW = [](int d) {
-    if (d < 1)
-      return 1;
+    if (d < 1) return 1;
     while (true) {
       int temp = d;
-      while (temp % 2 == 0)
-        temp /= 2;
-      while (temp % 3 == 0)
-        temp /= 3;
-      while (temp % 5 == 0)
-        temp /= 5;
-      if (temp == 1)
-        return d;
+      while (temp % 2 == 0) temp /= 2;
+      while (temp % 3 == 0) temp /= 3;
+      while (temp % 5 == 0) temp /= 5;
+      if (temp == 1) return d;
       d++;
     }
   };
@@ -600,8 +582,7 @@ void EwaldPME::RecipInit(uint box, BoxDimensions const &axes) {
 }
 
 void EwaldPME::UpdateRecipVec(uint box) {
-  if (box >= BOXES_WITH_U_NB)
-    return;
+  if (box >= BOXES_WITH_U_NB) return;
   K[box][0] = K_trial[box][0];
   K[box][1] = K_trial[box][1];
   K[box][2] = K_trial[box][2];
@@ -621,8 +602,7 @@ void EwaldPME::UpdateRecipVec(uint box) {
 }
 
 void EwaldPME::UpdateRecip(uint box) {
-  if (box >= BOXES_WITH_U_NB || !pendingUpdate[box])
-    return;
+  if (box >= BOXES_WITH_U_NB || !pendingUpdate[box]) return;
   if (forceFullUpdate[box]) {
     // Ensure K_trial matches committed K before rebuilding
     K_trial[box][0] = K[box][0];
@@ -652,8 +632,7 @@ void EwaldPME::UpdateRecip(uint box) {
 }
 
 void EwaldPME::Maintain(const ulong step) {
-  if (refreshInterval == 0 || (step + 1) % refreshInterval != 0)
-    return;
+  if (refreshInterval == 0 || (step + 1) % refreshInterval != 0) return;
   for (uint b = 0; b < BOXES_WITH_U_NB; b++) {
     BoxReciprocalSums(b, currentCoords);
     UpdateRecipVec(b);
@@ -726,9 +705,9 @@ void EwaldPME::CopyRecip(uint box) { return; }
 void EwaldPME::backupMolCache() { return; }
 
 void EwaldPME::BoxForceReciprocal(XYZArray const &molCoords,
-                                  XYZArray &atomForceRec, XYZArray &molForceRec, uint box) {
-  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
-    return;
+                                  XYZArray &atomForceRec, XYZArray &molForceRec,
+                                  uint box) {
+  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr) return;
   UpdatePotentialMesh(box);
   int Kx = K[box][0], Ky = K[box][1], Kz = K[box][2];
   double Lx = currentAxes.axis.Get(box).x, Ly = currentAxes.axis.Get(box).y,
@@ -826,8 +805,7 @@ double EwaldPME::MolReciprocal(XYZArray const &molCoords, const uint molIndex,
 
 double EwaldPME::SwapDestRecip(const cbmc::TrialMol &newMol, const uint box,
                                const int molIndex) {
-  if (box >= BOXES_WITH_U_NB)
-    return 0.0;
+  if (box >= BOXES_WITH_U_NB) return 0.0;
   uint length = newMol.GetKind().NumAtoms();
   vector<uint> atomIndices(length);
   vector<double> charges(length);
@@ -856,8 +834,7 @@ double EwaldPME::SwapDestRecip(const cbmc::TrialMol &newMol, const uint box,
 double EwaldPME::SwapSourceRecip(const cbmc::TrialMol &oldMol, const uint box,
                                  const int molIndex) {
 
-  if (box >= BOXES_WITH_U_NB)
-    return 0.0;
+  if (box >= BOXES_WITH_U_NB) return 0.0;
   uint length = oldMol.GetKind().NumAtoms();
   vector<uint> atomIndices(length);
   vector<double> charges(length);
@@ -880,7 +857,7 @@ double EwaldPME::SwapSourceRecip(const cbmc::TrialMol &oldMol, const uint box,
   cachedSignOld[box] = -1.0;
   cachedNAtoms[box] = length;
 
- return dE;
+  return dE;
 }
 
 double EwaldPME::ChangeLambdaRecip(XYZArray const &molCoords,
@@ -914,8 +891,7 @@ EwaldPME::MolExchangeReciprocal(const std::vector<cbmc::TrialMol> &newMol,
 }
 
 Virial EwaldPME::VirialReciprocal(Virial &virial, uint box) const {
-  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr)
-    return virial;
+  if (box >= BOXES_WITH_U_NB || S_ref[box] == nullptr) return virial;
   SumMeshEnergy(box, S_ref[box], &virial, false);
   return virial;
 }

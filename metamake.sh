@@ -241,5 +241,5 @@ if (( use_debug )); then
 	CMAKEARGS+="-DCMAKE_BUILD_TYPE=Debug "
 fi
 
-cmake .. $CMAKEARGS
+cmake .. $CMAKEARGS -DFFTW3_DIRS="/wsu/el7/gnu9/fftw/3.3.8"
 make -j8 $ENSEMBLES
