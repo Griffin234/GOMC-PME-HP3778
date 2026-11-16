@@ -16,38 +16,31 @@ A copy of the MIT License can be found in License.txt with this program or at
 
 void CallBoxForceGPU(VariablesCUDA *vars, const std::vector<int> &cellVector,
                      const std::vector<int> &cellStartIndex,
-                     const std::vector<std::vector<int>> &neighborList,
                      const std::vector<int> &mapParticleToCell,
                      XYZArray const &coords, BoxDimensions const &boxAxes,
-                     bool electrostatic,
-                     const std::vector<double> &particleCharge,
-                     const std::vector<int> &particleKind,
-                     const std::vector<int> &particleMol, double &REn,
-                     double &LJEn, double *aForcex, double *aForcey,
-                     double *aForcez, double *mForcex, double *mForcey,
-                     double *mForcez, int atomCount, int molCount, bool sc_coul,
+                     bool electrostatic, double &REn, double &LJEn,
+                     double *aForcex, double *aForcey, double *aForcez,
+                     double *mForcex, double *mForcey, double *mForcez,
+                     int atomCount, int molCount, bool sc_coul,
                      double sc_sigma_6, double sc_alpha, uint sc_power,
-                     uint const box);
+                     int moveType, uint const box, const bool calcEnergies);
 
 void CallBoxInterForceGPU(
     VariablesCUDA *vars, const std::vector<int> &cellVector,
     const std::vector<int> &cellStartIndex,
-    const std::vector<std::vector<int>> &neighborList,
     const std::vector<int> &mapParticleToCell, XYZArray const &currentCoords,
     XYZArray const &currentCOM, BoxDimensions const &boxAxes,
-    bool electrostatic, const std::vector<double> &particleCharge,
-    const std::vector<int> &particleKind, const std::vector<int> &particleMol,
-    double &rT11, double &rT12, double &rT13, double &rT22, double &rT23,
-    double &rT33, double &vT11, double &vT12, double &vT13, double &vT22,
-    double &vT23, double &vT33, bool sc_coul, double sc_sigma_6,
+    bool electrostatic, double &rT11, double &rT12, double &rT13, double &rT22,
+    double &rT23, double &rT33, double &vT11, double &vT12, double &vT13,
+    double &vT22, double &vT23, double &vT33, bool sc_coul, double sc_sigma_6,
     double sc_alpha, uint sc_power, uint const box);
 
 void CallVirialReciprocalGPU(VariablesCUDA *vars, XYZArray const &currentCoords,
                              XYZArray const &currentCOMDiff,
-                             const std::vector<double> &particleCharge,
-                             double &rT11, double &rT12, double &rT13,
-                             double &rT22, double &rT23, double &rT33,
-                             uint imageSize, double constVal, uint box);
+                             const std::vector<double> &molCharge, double &wT11,
+                             double &wT12, double &wT13, double &wT22,
+                             double &wT23, double &wT33, uint imageSize,
+                             double constVal, uint box);
 
 __global__ void BoxForceGPU(
     int *gpu_cellStartIndex, int *gpu_cellVector, int *gpu_neighborList,
@@ -57,16 +50,17 @@ __global__ void BoxForceGPU(
     int *gpu_particleMol, double *gpu_REn, double *gpu_LJEn,
     double *gpu_sigmaSq, double *gpu_epsilon_Cn, double *gpu_n,
     int *gpu_VDW_Kind, int *gpu_isMartini, int *gpu_count, double *gpu_rCut,
-    double *gpu_rCutCoulomb, double *gpu_rCutLow, double *gpu_rOn,
-    double *gpu_alpha, double *gpu_alphaSq, int *gpu_ewald,
-    double *gpu_diElectric_1, int *gpu_nonOrth, double *gpu_cell_x,
-    double *gpu_cell_y, double *gpu_cell_z, double *gpu_Invcell_x,
-    double *gpu_Invcell_y, double *gpu_Invcell_z, double *gpu_aForcex,
-    double *gpu_aForcey, double *gpu_aForcez, double *gpu_mForcex,
-    double *gpu_mForcey, double *gpu_mForcez, bool sc_coul, double sc_sigma_6,
-    double sc_alpha, uint sc_power, double *gpu_rMin, double *gpu_rMaxSq,
-    double *gpu_expConst, int *gpu_molIndex, double *gpu_lambdaVDW,
-    double *gpu_lambdaCoulomb, bool *gpu_isFraction, int box);
+    double *gpu_rCutSq, double *gpu_rCutCoulomb, double *gpu_rCutCoulombSq,
+    double *gpu_rCutLow, double *gpu_rOn, double *gpu_alpha,
+    double *gpu_alphaSq, int *gpu_ewald, double *gpu_diElectric_1,
+    int *gpu_nonOrth, double *gpu_cell_x, double *gpu_cell_y,
+    double *gpu_cell_z, double *gpu_Invcell_x, double *gpu_Invcell_y,
+    double *gpu_Invcell_z, double *gpu_aForcex, double *gpu_aForcey,
+    double *gpu_aForcez, double *gpu_mForcex, double *gpu_mForcey,
+    double *gpu_mForcez, bool sc_coul, double sc_sigma_6, double sc_alpha,
+    uint sc_power, double *gpu_rMin, double *gpu_rMaxSq, double *gpu_expConst,
+    int *gpu_molIndex, double *gpu_lambdaVDW, double *gpu_lambdaCoulomb,
+    bool *gpu_isFraction, int moveType, int box, const bool calcEnergies);
 
 __global__ void BoxInterForceGPU(
     int *gpu_cellStartIndex, int *gpu_cellVector, int *gpu_neighborList,
@@ -79,8 +73,9 @@ __global__ void BoxInterForceGPU(
     double *gpu_vT12, double *gpu_vT13, double *gpu_vT22, double *gpu_vT23,
     double *gpu_vT33, double *gpu_sigmaSq, double *gpu_epsilon_Cn,
     double *gpu_n, int *gpu_VDW_Kind, int *gpu_isMartini, int *gpu_count,
-    double *gpu_rCut, double *gpu_rCutCoulomb, double *gpu_rCutLow,
-    double *gpu_rOn, double *gpu_alpha, double *gpu_alphaSq, int *gpu_ewald,
+    double *gpu_rCut, double *gpu_rCutSq, double *gpu_rCutCoulomb,
+    double *gpu_rCutCoulombSq, double *gpu_rCutLow, double *gpu_rOn,
+    double *gpu_alpha, double *gpu_alphaSq, int *gpu_ewald,
     double *gpu_diElectric_1, double *gpu_cell_x, double *gpu_cell_y,
     double *gpu_cell_z, double *gpu_Invcell_x, double *gpu_Invcell_y,
     double *gpu_Invcell_z, int *gpu_nonOrth, bool sc_coul, double sc_sigma_6,
@@ -92,18 +87,18 @@ __global__ void VirialReciprocalGPU(
     double *gpu_x, double *gpu_y, double *gpu_z, double *gpu_comDx,
     double *gpu_comDy, double *gpu_comDz, double *gpu_kxRef, double *gpu_kyRef,
     double *gpu_kzRef, double *gpu_prefactRef, double *gpu_hsqrRef,
-    double *gpu_sumRref, double *gpu_sumIref, double *gpu_particleCharge,
-    double *gpu_rT11, double *gpu_rT12, double *gpu_rT13, double *gpu_rT22,
-    double *gpu_rT23, double *gpu_rT33, double constVal, uint imageSize,
+    double *gpu_sumRref, double *gpu_sumIref, double *gpu_molCharge,
+    double *gpu_wT11, double *gpu_wT12, double *gpu_wT13, double *gpu_wT22,
+    double *gpu_wT23, double *gpu_wT33, double constVal, uint imageSize,
     uint atomNumber);
 
 __device__ double
 CalcEnForceGPU(double distSq, int kind1, int kind2, double *gpu_sigmaSq,
                double *gpu_n, double *gpu_epsilon_Cn, double gpu_rCut,
-               double gpu_rOn, int gpu_isMartini, int gpu_VDW_Kind,
-               int gpu_count, double gpu_lambdaVDW, double sc_sigma_6,
-               double sc_alpha, uint sc_power, double *gpu_rMin,
-               double *gpu_rMaxSq, double *gpu_expConst);
+               double gpu_rCutSq, double gpu_rOn, int gpu_isMartini,
+               int gpu_VDW_Kind, int gpu_count, double gpu_lambdaVDW,
+               double sc_sigma_6, double sc_alpha, uint sc_power,
+               double *gpu_rMin, double *gpu_rMaxSq, double *gpu_expConst);
 
 // ElectroStatic Calculation
 //**************************************************************//
@@ -146,14 +141,15 @@ CalcCoulombVirSwitchMartiniGPU(double distSq, double qi_qj, int gpu_ewald,
                                double gpu_rCut, double gpu_diElectric_1);
 __device__ double CalcCoulombVirSwitchGPU(double distSq, double qi_qj,
                                           int gpu_ewald, double gpu_alpha,
-                                          double gpu_alphaSq, double gpu_rCut,
+                                          double gpu_alphaSq, double gpu_rCutSq,
                                           int index, double gpu_sigmaSq,
                                           bool sc_coul, double sc_sigma_6,
                                           double sc_alpha, uint sc_power,
                                           double gpu_lambdaCoulomb);
 __device__ double CalcCoulombVirSwitchGPU(double distSq, double qi_qj,
                                           int gpu_ewald, double gpu_alpha,
-                                          double gpu_alphaSq, double gpu_rCut);
+                                          double gpu_alphaSq,
+                                          double gpu_rCutSq);
 
 // VDW Calculation
 //*****************************************************************//
@@ -190,24 +186,26 @@ __device__ double CalcVirSwitchMartiniGPU(double distSq, int index,
                                           double gpu_rCut, double rOn);
 __device__ double CalcVirSwitchGPU(double distSq, int index, double gpu_sigmaSq,
                                    double *gpu_epsilon_Cn, double *gpu_n,
-                                   double gpu_rCut, double gpu_rOn,
+                                   double gpu_rCutSq, double gpu_rOn,
                                    double sc_sigma_6, double sc_alpha,
                                    uint sc_power, double gpu_lambdaVDW);
 __device__ double CalcVirSwitchGPU(double distSq, int index, double gpu_sigmaSq,
                                    double *gpu_epsilon_Cn, double *gpu_n,
-                                   double gpu_rCut, double gpu_rOn);
+                                   double gpu_rCutSq, double gpu_rOn);
 
 // Have to move the implementation for some functions here
 // since CUDA doesn't allow __global__ to call __device__
 // from different files
 // Wanted to call CalcCoulombForceGPU() from CalculateEnergyCUDAKernel.cu file
-__device__ inline double CalcCoulombForceGPU(
-    double distSq, double qi_qj, int gpu_VDW_Kind, int gpu_ewald,
-    int gpu_isMartini, double gpu_alpha, double gpu_alphaSq,
-    double gpu_rCutCoulomb, double gpu_diElectric_1, double *gpu_sigmaSq,
-    bool sc_coul, double sc_sigma_6, double sc_alpha, uint sc_power,
-    double gpu_lambdaCoulomb, int gpu_count, int kind1, int kind2) {
-  if ((gpu_rCutCoulomb * gpu_rCutCoulomb) < distSq) {
+__device__ inline double
+CalcCoulombForceGPU(double distSq, double qi_qj, int gpu_VDW_Kind,
+                    int gpu_ewald, int gpu_isMartini, double gpu_alpha,
+                    double gpu_alphaSq, double gpu_rCutCoulomb,
+                    double gpu_rCutCoulombSq, double gpu_diElectric_1,
+                    double *gpu_sigmaSq, bool sc_coul, double sc_sigma_6,
+                    double sc_alpha, uint sc_power, double gpu_lambdaCoulomb,
+                    int gpu_count, int kind1, int kind2) {
+  if (gpu_rCutCoulombSq < distSq) {
     return 0.0;
   }
 
@@ -234,7 +232,7 @@ __device__ inline double CalcCoulombForceGPU(
         sc_alpha, sc_power, gpu_lambdaCoulomb);
   } else
     return CalcCoulombVirSwitchGPU(distSq, qi_qj, gpu_ewald, gpu_alpha,
-                                   gpu_alphaSq, gpu_rCutCoulomb, index,
+                                   gpu_alphaSq, gpu_rCutCoulombSq, index,
                                    gpu_sigmaSq[index], sc_coul, sc_sigma_6,
                                    sc_alpha, sc_power, gpu_lambdaCoulomb);
 }

@@ -8,6 +8,7 @@ A copy of the MIT License can be found in License.txt with this program or at
 
 #ifdef GOMC_CUDA
 #include "BoxDimensions.h"
+#include "ConstantDefinitionsCUDAKernel.cuh"
 #include "VariablesCUDA.cuh"
 #include "XYZArray.h"
 #include <cuda.h>
@@ -16,14 +17,50 @@ A copy of the MIT License can be found in License.txt with this program or at
 
 void CallBoxInterGPU(VariablesCUDA *vars, const std::vector<int> &cellVector,
                      const std::vector<int> &cellStartIndex,
-                     const std::vector<std::vector<int>> &neighborList,
                      XYZArray const &coords, BoxDimensions const &boxAxes,
-                     bool electrostatic,
-                     const std::vector<double> &particleCharge,
-                     const std::vector<int> &particleKind,
-                     const std::vector<int> &particleMol, double &REn,
-                     double &LJEn, bool sc_coul, double sc_sigma_6,
-                     double sc_alpha, uint sc_power, uint const box);
+                     bool electrostatic, double &REn, double &LJEn,
+                     bool sc_coul, double sc_sigma_6, double sc_alpha,
+                     uint sc_power, uint const box);
+
+void CallCalculateTorqueGPU(VariablesCUDA *vars,
+                            std::vector<int> &moleculeIndex,
+                            XYZArray const &coordinates, XYZArray const &com,
+                            XYZArray const &atomForce,
+                            XYZArray const &atomForceRec, XYZArray &molTorque,
+                            const uint box, BoxDimensions const &boxAxes);
+
+__global__ void CalculateTorqueGPU(
+    const int *__restrict__ gpu_startAtomIndex, // atom indices
+    const int *__restrict__ gpu_moleculeIndex,  // molecule indices
+
+    const double *__restrict__ gpu_x, // x coordinates
+    const double *__restrict__ gpu_y, // y coordinates
+    const double *__restrict__ gpu_z, // z coordinates
+
+    const double *__restrict__ gpu_comx, // x center of mass
+    const double *__restrict__ gpu_comy, // y center of mass
+    const double *__restrict__ gpu_comz, // z center of mass
+
+    const double *__restrict__ gpu_atomforcex, // x atom force
+    const double *__restrict__ gpu_atomforcey, // y atom force
+    const double *__restrict__ gpu_atomforcez, // z atom force
+
+    const double *__restrict__ gpu_atomforcerecx, // x atom force reciprocal
+    const double *__restrict__ gpu_atomforcerecy, // y atom force reciprocal
+    const double *__restrict__ gpu_atomforcerecz, // z atom force reciprocal
+
+    double *__restrict__ gpu_moltorquex, // x molecule torque
+    double *__restrict__ gpu_moltorquey, // y molecule torque
+    double *__restrict__ gpu_moltorquez, // z molecule torque
+
+    const uint box,          // box number
+    const uint numMolecules, // number of molecules, if index is above this
+                             // number we should just return
+    const double3 axis,      // lengths in each dimension
+    const double3 halfAx     // half of axis
+);
+
+__device__ inline double3 CrossProductGPU(const double3 &a, const double3 &b);
 
 __global__ void
 BoxInterGPU(int *gpu_cellStartIndex, int *gpu_cellVector, int *gpu_neighborList,
@@ -33,23 +70,23 @@ BoxInterGPU(int *gpu_cellStartIndex, int *gpu_cellVector, int *gpu_neighborList,
             int *gpu_particleMol, double *gpu_REn, double *gpu_LJEn,
             double *gpu_sigmaSq, double *gpu_epsilon_Cn, double *gpu_n,
             int *gpu_VDW_Kind, int *gpu_isMartini, int *gpu_count,
-            double *gpu_rCut, double *gpu_rCutCoulomb, double *gpu_rCutLow,
-            double *gpu_rOn, double *gpu_alpha, int *gpu_ewald,
-            double *gpu_diElectric_1, int *gpu_nonOrth, double *gpu_cell_x,
-            double *gpu_cell_y, double *gpu_cell_z, double *gpu_Invcell_x,
-            double *gpu_Invcell_y, double *gpu_Invcell_z, bool sc_coul,
-            double sc_sigma_6, double sc_alpha, uint sc_power, double *gpu_rMin,
+            double *gpu_rCut, double *gpu_rCutSq, double *gpu_rCutCoulomb,
+            double *gpu_rCutCoulombSq, double *gpu_rCutLow, double *gpu_rOn,
+            double *gpu_alpha, int *gpu_ewald, double *gpu_diElectric_1,
+            int *gpu_nonOrth, double *gpu_cell_x, double *gpu_cell_y,
+            double *gpu_cell_z, double *gpu_Invcell_x, double *gpu_Invcell_y,
+            double *gpu_Invcell_z, bool sc_coul, double sc_sigma_6,
+            double sc_alpha, uint sc_power, double *gpu_rMin,
             double *gpu_rMaxSq, double *gpu_expConst, int *gpu_molIndex,
             double *gpu_lambdaVDW, double *gpu_lambdaCoulomb,
             bool *gpu_isFraction, int box);
 
-__device__ double
-CalcCoulombGPU(double distSq, int kind1, int kind2, double qi_qj_fact,
-               double gpu_rCutLow, int gpu_ewald, int gpu_VDW_Kind,
-               double gpu_alpha, double gpu_rCutCoulomb, int gpu_isMartini,
-               double gpu_diElectric_1, double gpu_lambdaCoulomb, bool sc_coul,
-               double sc_sigma_6, double sc_alpha, uint sc_power,
-               double *gpu_sigmaSq, int gpu_count);
+__device__ double CalcCoulombGPU(
+    double distSq, int kind1, int kind2, double qi_qj_fact, double gpu_rCutLow,
+    int gpu_ewald, int gpu_VDW_Kind, double gpu_alpha, double gpu_rCutCoulomb,
+    double gpu_rCutCoulombSq, int gpu_isMartini, double gpu_diElectric_1,
+    double gpu_lambdaCoulomb, bool sc_coul, double sc_sigma_6, double sc_alpha,
+    uint sc_power, double *gpu_sigmaSq, int gpu_count);
 __device__ double CalcCoulombVirGPU(double distSq, double qi_qj,
                                     double gpu_rCutCoulomb, double gpu_alpha,
                                     int gpu_VDW_Kind, int gpu_ewald,
@@ -57,11 +94,11 @@ __device__ double CalcCoulombVirGPU(double distSq, double qi_qj,
 __device__ double CalcEnGPU(double distSq, int kind1, int kind2,
                             double *gpu_sigmaSq, double *gpu_n,
                             double *gpu_epsilon_Cn, int gpu_VDW_Kind,
-                            int gpu_isMartini, double gpu_rCut, double gpu_rOn,
-                            int gpu_count, double gpu_lambdaVDW,
-                            double sc_sigma_6, double sc_alpha, uint sc_power,
-                            double *gpu_rMin, double *gpu_rMaxSq,
-                            double *gpu_expConst);
+                            int gpu_isMartini, double gpu_rCut,
+                            double gpu_rCutSq, double gpu_rOn, int gpu_count,
+                            double gpu_lambdaVDW, double sc_sigma_6,
+                            double sc_alpha, uint sc_power, double *gpu_rMin,
+                            double *gpu_rMaxSq, double *gpu_expConst);
 
 // ElectroStatic Calculation
 //**************************************************************//
@@ -92,25 +129,25 @@ __device__ double CalcCoulombExp6GPU(double distSq, int index,
                                      double *gpu_sigmaSq);
 __device__ double CalcCoulombExp6GPUNoLambda(double distSq, double qi_qj_fact,
                                              int gpu_ewald, double gpu_alpha);
-__device__ double
-CalcCoulombSwitchMartiniGPU(double distSq, int index, double qi_qj_fact,
-                            int gpu_ewald, double gpu_alpha, double gpu_rCut,
-                            double gpu_diElectric_1, double gpu_lambdaCoulomb,
-                            bool sc_coul, double sc_sigma_6, double sc_alpha,
-                            uint sc_power, double *gpu_sigmaSq);
-__device__ double
-CalcCoulombSwitchMartiniGPUNoLambda(double distSq, double qi_qj_fact,
-                                    int gpu_ewald, double gpu_alpha,
-                                    double gpu_rCut, double gpu_diElectric_1);
+__device__ double CalcCoulombSwitchMartiniGPU(
+    double distSq, int index, double qi_qj_fact, int gpu_ewald,
+    double gpu_alpha, double gpu_rCut, double gpu_rCutSq,
+    double gpu_diElectric_1, double gpu_lambdaCoulomb, bool sc_coul,
+    double sc_sigma_6, double sc_alpha, uint sc_power, double *gpu_sigmaSq);
+__device__ double CalcCoulombSwitchMartiniGPUNoLambda(
+    double distSq, double qi_qj_fact, int gpu_ewald, double gpu_alpha,
+    double gpu_rCut, double gpu_rCutSq, double gpu_diElectric_1);
 __device__ double CalcCoulombSwitchGPU(double distSq, int index,
                                        double qi_qj_fact, double gpu_alpha,
                                        int gpu_ewald, double gpu_rCut,
+                                       double gpu_rCutSq,
                                        double gpu_lambdaCoulomb, bool sc_coul,
                                        double sc_sigma_6, double sc_alpha,
                                        uint sc_power, double *gpu_sigmaSq);
 __device__ double CalcCoulombSwitchGPUNoLambda(double distSq, double qi_qj_fact,
                                                int gpu_ewald, double gpu_alpha,
-                                               double gpu_rCut);
+                                               double gpu_rCut,
+                                               double gpu_rCutSq);
 
 // VDW Calculation
 //*****************************************************************//
@@ -124,7 +161,7 @@ __device__ double CalcEnParticleGPUNoLambda(double distSq, int index,
                                             double *gpu_epsilon_Cn);
 __device__ double CalcEnShiftGPU(double distSq, int index, double *gpu_sigmaSq,
                                  double *gpu_n, double *gpu_epsilon_Cn,
-                                 double gpu_rCut, double gpu_lambdaVDW,
+                                 double gpu_rCutSq, double gpu_lambdaVDW,
                                  double sc_sigma_6, double sc_alpha,
                                  uint sc_power);
 __device__ double CalcEnShiftGPUNoLambda(double distSq, int index,

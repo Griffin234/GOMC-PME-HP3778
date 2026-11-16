@@ -7,7 +7,6 @@ A copy of the MIT License can be found in License.txt with this program or at
 #define CALCULATE_MIN_IMAGE_CUDA_KERNEL_H
 
 #ifdef GOMC_CUDA
-
 #include "ConstantDefinitionsCUDAKernel.cuh"
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -69,7 +68,8 @@ WrapPBCNonOrth3(double3 &v, const double3 &ax, const double *gpu_cell_x,
 
 __device__ inline void UnwrapPBC(double &v, const double &ref, const double &ax,
                                  const double &halfax) {
-  if (std::fabs(ref - v) > halfax) {
+  // Per CUDA documentation, std namespace math functions are not supported
+  if (fabs(ref - v) > halfax) {
     if (ref < halfax)
       v -= ax;
     else
@@ -132,9 +132,10 @@ __device__ inline void
 DeviceInRcut(double &distSq, double3 &dist, const double *gpu_x,
              const double *gpu_y, const double *gpu_z, int particleID,
              int otherParticle, double axx, double axy, double axz,
-             int gpu_nonOrth, double *gpu_cell_x, double *gpu_cell_y,
-             double *gpu_cell_z, double *gpu_Invcell_x, double *gpu_Invcell_y,
-             double *gpu_Invcell_z) {
+             int gpu_nonOrth, const double *gpu_cell_x,
+             const double *gpu_cell_y, const double *gpu_cell_z,
+             const double *gpu_Invcell_x, const double *gpu_Invcell_y,
+             const double *gpu_Invcell_z) {
   // calculate distance
   double3 axes, halfAx;
   dist.x = gpu_x[particleID] - gpu_x[otherParticle];
@@ -164,7 +165,7 @@ DeviceInRcut(double &distSq, double3 &dist, const double *gpu_x,
 __device__ inline bool
 InRcutGPU(double &distSq, const double *x, const double *y, const double *z,
           uint i, uint j, const double3 &axis, const double3 &halfAx,
-          double gpu_rCut, int gpu_nonOrth, const double *gpu_cell_x,
+          double gpu_rCutSq, int gpu_nonOrth, const double *gpu_cell_x,
           const double *gpu_cell_y, const double *gpu_cell_z,
           const double *gpu_Invcell_x, const double *gpu_Invcell_y,
           const double *gpu_Invcell_z) {
@@ -181,14 +182,14 @@ InRcutGPU(double &distSq, const double *x, const double *y, const double *z,
 
   distSq = dist.x * dist.x + dist.y * dist.y + dist.z * dist.z;
 
-  return ((gpu_rCut * gpu_rCut) > distSq);
+  return (gpu_rCutSq > distSq);
 }
 
 // Call by force calculate to return the distance and virial component
 __device__ inline bool
 InRcutGPU(double &distSq, double3 &dist, const double *x, const double *y,
           const double *z, uint i, uint j, const double3 &axis,
-          const double3 &halfAx, double gpu_rCut, int gpu_nonOrth,
+          const double3 &halfAx, double gpu_rCutSq, int gpu_nonOrth,
           const double *gpu_cell_x, const double *gpu_cell_y,
           const double *gpu_cell_z, const double *gpu_Invcell_x,
           const double *gpu_Invcell_y, const double *gpu_Invcell_z) {
@@ -203,7 +204,7 @@ InRcutGPU(double &distSq, double3 &dist, const double *x, const double *y,
 
   distSq = dist.x * dist.x + dist.y * dist.y + dist.z * dist.z;
 
-  return ((gpu_rCut * gpu_rCut) > distSq);
+  return (gpu_rCutSq > distSq);
 }
 
 __device__ inline int FlatIndexGPU(int i, int j, int gpu_count) {
@@ -275,7 +276,7 @@ static __inline__ __device__ double atomicAdd(double *address, double val) {
   } while (assumed != old);
   return __longlong_as_double(old);
 }
-#endif
+#endif /*CUDA_ARCH*/
 
 #endif /*GOMC_CUDA*/
 #endif /*CALCULATE_MIN_IMAGE_CUDA_KERNEL_H*/

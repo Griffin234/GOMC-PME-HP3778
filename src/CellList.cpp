@@ -7,59 +7,50 @@ A copy of the MIT License can be found in License.txt with this program or at
 
 #include <algorithm>
 
-#include "BoxDimensions.h"
-#include "BoxDimensionsNonOrth.h"
 #include "MoleculeLookup.h"
 #include "Molecules.h"
 #include "XYZArray.h"
+#ifdef GOMC_CUDA
+#include "ConstantDefinitionsCUDAKernel.cuh"
+#endif
 
 const int CellList::END_CELL;
 
-CellList::CellList(const Molecules &mols, BoxDimensions &dims) : mols(&mols) {
-  dimensions = &dims;
+CellList::CellList(Forcefield &forcefield, const Molecules &mols,
+                   BoxDimensions &dims)
+    : mols(mols), dimensions(dims), ff(forcefield) {
   isBuilt = false;
   for (uint b = 0; b < BOX_TOTAL; b++) {
     edgeCells[b][0] = edgeCells[b][1] = edgeCells[b][2] = 0;
   }
+  this->SetCutoff();
 }
 
-CellList::CellList(const CellList &other) : mols(other.mols) {
-  dimensions = other.dimensions;
+CellList::CellList(const CellList &other)
+    : list{other.list}, mols(other.mols), dimensions(other.dimensions),
+      ff(other.ff) {
   isBuilt = true;
   for (uint b = 0; b < BOX_TOTAL; b++) {
+    neighbors[b] = other.neighbors[b];
+    head[b] = other.head[b];
     edgeCells[b][0] = other.edgeCells[b][0];
     edgeCells[b][1] = other.edgeCells[b][1];
     edgeCells[b][2] = other.edgeCells[b][2];
+    cutoff[b] = other.cutoff[b];
   }
-
-  for (uint b = 0; b < BOX_TOTAL; b++) {
-    RebuildNeighbors(b);
-  }
-
-  list.resize(other.list.size());
-
-  for (size_t i = 0; i < other.list.size(); i++) {
-    list[i] = other.list[i];
-  }
-
-  for (uint b = 0; b < BOX_TOTAL; b++) {
-    for (size_t i = 0; i < other.neighbors[b].size(); i++) {
-      neighbors[b][i] = other.neighbors[b][i];
-    }
-  }
-
-  for (uint b = 0; b < BOX_TOTAL; b++) {
-    for (size_t i = 0; i < other.head[b].size(); i++) {
-      head[b][i] = other.head[b][i];
-    }
-  }
-  // neighbors(other.neighbors);
-  // head(other.head);
 }
+
+CellList::~CellList() {
+#ifdef GOMC_CUDA
+  DestroyNeighborListCUDAVars(ff.particles->getCUDAVars());
+#endif
+}
+
+void CellList::Init() { SetCutoff(); }
 
 void CellList::SetCutoff() {
   for (uint b = 0; b < BOX_TOTAL; b++) {
-    cutoff[b] = dimensions->rCut[b];
+    cutoff[b] = dimensions.rCut[b];
   }
 }
 
@@ -81,14 +72,14 @@ bool CellList::IsExhaustive() const {
 void CellList::RemoveMol(const int molIndex, const int box,
                          const XYZArray &pos) {
   // For each atom in molecule
-  int p = mols->MolStart(molIndex);
-  int end = mols->MolEnd(molIndex);
+  int p = mols.MolStart(molIndex);
+  int end = mols.MolEnd(molIndex);
   while (p != end) {
     int cell = PositionToCell(pos[p], box);
     int at = head[box][cell];
 
     // If particle we're looking for is at head of list assign its
-    // pointed at index (should be -1) to head.... this is the case
+    // pointed at index (should be -1) to head ... this is the case
     // for removing the head molecule in the cell, which is often when
     // we're removing the last molecule/particle from a particular cell.
     //
@@ -111,8 +102,8 @@ void CellList::RemoveMol(const int molIndex, const int box,
 
 void CellList::AddMol(const int molIndex, const int box, const XYZArray &pos) {
   // For each atom in molecule
-  int p = mols->MolStart(molIndex);
-  int end = mols->MolEnd(molIndex);
+  int p = mols.MolStart(molIndex);
+  int end = mols.MolEnd(molIndex);
 
   // Note: GridAll assigns everything to END_CELL
   // so list should point to that
@@ -123,7 +114,7 @@ void CellList::AddMol(const int molIndex, const int box, const XYZArray &pos) {
     if (cell >= static_cast<int>(head[box].size())) {
       std::cout << "CellList.cpp:129: box " << box
                 << ", pos out of cell: " << pos[p] << std::endl;
-      std::cout << "AxisDimensions: " << dimensions->GetAxis(box) << std::endl;
+      std::cout << "AxisDimensions: " << dimensions.GetAxis(box) << std::endl;
     }
 #endif
     // Make the current head index the index the new head points at.
@@ -162,7 +153,7 @@ void CellList::ResizeGrid(const BoxDimensions &dims) {
   isBuilt = true;
 }
 
-// Resize one boxes to match current axes
+// Resize one box to match current axes
 void CellList::ResizeGridBox(const BoxDimensions &dims, const uint b) {
   XYZ sides = dims.axis[b];
   bool rebuild = false;
@@ -188,7 +179,7 @@ void CellList::ResizeGridBox(const BoxDimensions &dims, const uint b) {
   isBuilt = true;
 }
 
-void CellList::RebuildNeighbors(int b) {
+void CellList::RebuildNeighbors(const uint b) {
   int *eCells = edgeCells[b];
   int nCells = eCells[0] * eCells[1] * eCells[2];
   head[b].resize(nCells);
@@ -215,11 +206,14 @@ void CellList::RebuildNeighbors(int b) {
       }
     }
   }
+#ifdef GOMC_CUDA
+  RebuildNeighborsCUDA(ff.particles->getCUDAVars(), neighbors[b], b);
+#endif
 }
 
 void CellList::GridAll(BoxDimensions &dims, const XYZArray &pos,
                        const MoleculeLookup &lookup) {
-  dimensions = &dims;
+  dimensions = dims;
   list.resize(pos.Count());
   ResizeGrid(dims);
   for (int b = 0; b < BOX_TOTAL; ++b) {
@@ -238,7 +232,7 @@ void CellList::GridAll(BoxDimensions &dims, const XYZArray &pos,
 
 void CellList::GridBox(BoxDimensions &dims, const XYZArray &pos,
                        const MoleculeLookup &lookup, const uint b) {
-  dimensions = &dims;
+  dimensions = dims;
   list.resize(pos.Count());
   ResizeGridBox(dims, b);
   head[b].assign(edgeCells[b][0] * edgeCells[b][1] * edgeCells[b][2], END_CELL);
@@ -288,64 +282,70 @@ std::vector<std::vector<int>> CellList::GetNeighborList(uint box) const {
   return neighbors[box];
 }
 
-bool CellList::CompareCellList(CellList &other, int coordinateSize) {
-  std::vector<int> cellVector, cellStartIndex, mapParticleToCell;
-  std::vector<int> otherCellVector, otherCellStartIndex, otherMapParticleToCell;
+// This function clearly doesn't do what it is intended to do. For instance,
+// why are we looping through both boxes to resize() the vectors? Why are we
+// not checking some of the properties? Why are we printing a message that the
+// cell lists are different but not returning false?
+//
+// bool CellList::CompareCellList(CellList &other, int coordinateSize) {
+// std::vector<int> cellVector, cellStartIndex, mapParticleToCell;
+// std::vector<int> otherCellVector, otherCellStartIndex,
+// otherMapParticleToCell;
 
-  for (uint box = 0; box < BOX_TOTAL; box++) {
-    cellVector.resize(coordinateSize);
-    cellStartIndex.resize(head[box].size());
-    mapParticleToCell.resize(coordinateSize);
+// for (uint box = 0; box < BOX_TOTAL; box++) {
+// cellVector.resize(coordinateSize);
+// cellStartIndex.resize(head[box].size());
+// mapParticleToCell.resize(coordinateSize);
 
-    otherCellVector.resize(coordinateSize);
-    otherCellStartIndex.resize(head[box].size());
-    otherMapParticleToCell.resize(coordinateSize);
-  }
+// otherCellVector.resize(coordinateSize);
+// otherCellStartIndex.resize(head[box].size());
+// otherMapParticleToCell.resize(coordinateSize);
+// }
 
-  for (uint box = 0; box < BOX_TOTAL; box++) {
-    int vector_index = 0;
-    for (size_t cell = 0; cell < head[box].size(); cell++) {
-      cellStartIndex[cell] = vector_index;
-      int particleIndex = head[box][cell];
-      while (particleIndex != END_CELL) {
-        cellVector[vector_index] = particleIndex;
-        mapParticleToCell[particleIndex] = cell;
-        vector_index++;
-        particleIndex = list[particleIndex];
-      }
-    }
-  }
+// for (uint box = 0; box < BOX_TOTAL; box++) {
+// int vector_index = 0;
+// for (size_t cell = 0; cell < head[box].size(); cell++) {
+// cellStartIndex[cell] = vector_index;
+// int particleIndex = head[box][cell];
+// while (particleIndex != END_CELL) {
+// cellVector[vector_index] = particleIndex;
+// mapParticleToCell[particleIndex] = cell;
+// vector_index++;
+// particleIndex = list[particleIndex];
+// }
+// }
+// }
 
-  for (uint box = 0; box < BOX_TOTAL; box++) {
-    int vector_index = 0;
-    for (size_t cell = 0; cell < other.head[box].size(); cell++) {
-      otherCellStartIndex[cell] = vector_index;
-      int particleIndex = other.head[box][cell];
-      while (particleIndex != END_CELL) {
-        otherCellVector[vector_index] = particleIndex;
-        otherMapParticleToCell[particleIndex] = cell;
-        vector_index++;
-        particleIndex = other.list[particleIndex];
-      }
-    }
-  }
+// for (uint box = 0; box < BOX_TOTAL; box++) {
+// int vector_index = 0;
+// for (size_t cell = 0; cell < other.head[box].size(); cell++) {
+// otherCellStartIndex[cell] = vector_index;
+// int particleIndex = other.head[box][cell];
+// while (particleIndex != END_CELL) {
+// otherCellVector[vector_index] = particleIndex;
+// otherMapParticleToCell[particleIndex] = cell;
+// vector_index++;
+// particleIndex = other.list[particleIndex];
+// }
+// }
+// }
 
-  if (list.size() == other.list.size()) {
-    for (size_t i = 0; i < list.size(); i++) {
-      if (list[i] != other.list[i])
-        std::cout << "List objects are different" << std::endl;
-    }
-  }
+// if (list.size() == other.list.size()) {
+// for (size_t i = 0; i < list.size(); i++) {
+// if (list[i] != other.list[i])
+// std::cout << "List objects are different" << std::endl;
+// }
+// }
 
-  for (size_t i = 0; i < mapParticleToCell.size(); i++) {
-    if (mapParticleToCell[i] != otherMapParticleToCell[i])
-      return false;
-  }
+// for (size_t i = 0; i < mapParticleToCell.size(); i++) {
+// if (mapParticleToCell[i] != otherMapParticleToCell[i])
+// return false;
+// }
 
-  std::cout << "CellList objects have equal states" << std::endl;
+// std::cout << "CellList objects have equal states" << std::endl;
 
-  return true;
-}
+// return true;
+// }
 
 void CellList::PrintList() {
   for (size_t i = 0; i < list.size(); i++)

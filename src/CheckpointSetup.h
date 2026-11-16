@@ -29,7 +29,6 @@ public:
   CheckpointSetup(ulong &startStep, ulong &trueStep, MoleculeLookup &molLookup,
                   MoveSettings &moveSettings, Molecules &mol, PRNG &prng,
                   Random123Wrapper &r123, Setup &set);
-
 #endif
 
   ~CheckpointSetup();

@@ -12,11 +12,12 @@ using namespace geom;
 
 template <class T> void SafeDeleteArray(T *&pVal) {
   delete[] pVal;
-  pVal = NULL;
+  pVal = nullptr;
 }
 
 EwaldCached::EwaldCached(StaticVals &stat, System &sys)
-    : Ewald(stat, sys)
+    : Ewald(stat, sys), cosMolRestore{}, sinMolRestore{}, cosMolRef{},
+      sinMolRef{}, cosMolBoxRecip{}, sinMolBoxRecip{}
 #if ENSEMBLE == GEMC
       ,
       GEMC_KIND(stat.kindOfGEMC)
@@ -136,7 +137,7 @@ void EwaldCached::BoxReciprocalSetup(uint box, XYZArray const &molCoords) {
         sumInew[box][i] += (lambdaCoef * sinMolRef[*thisMol][i]);
       }
 
-      thisMol++;
+      ++thisMol;
     }
     GOMC_EVENT_STOP(1, GomcProfileEvent::RECIP_BOX_SETUP);
   }
@@ -194,7 +195,7 @@ void EwaldCached::BoxReciprocalSums(uint box, XYZArray const &molCoords) {
         sumInew[box][i] += (lambdaCoef * sinMolRef[*thisMol][i]);
       }
 
-      thisMol++;
+      ++thisMol;
     }
     GOMC_EVENT_STOP(1, GomcProfileEvent::RECIP_BOX_SETUP);
   }
@@ -395,7 +396,8 @@ double
 EwaldCached::MolExchangeReciprocal(const std::vector<cbmc::TrialMol> &newMol,
                                    const std::vector<cbmc::TrialMol> &oldMol,
                                    const std::vector<uint> &molIndexNew,
-                                   const std::vector<uint> &molIndexOld) {
+                                   const std::vector<uint> &molIndexOld,
+                                   bool first_call) {
   // This function should not be called in IDExchange move
   std::cout << "Error: Cached Fourier method cannot be used while "
             << "performing Molecule Exchange move!" << std::endl;

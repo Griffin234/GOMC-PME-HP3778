@@ -42,7 +42,8 @@ A copy of the MIT License can be found in License.txt with this program or at
 
 System::System(StaticVals &statics, Setup &set, ulong &startStep,
                MultiSim const *const &multisim)
-    : statV(statics), boxDimRef(*BoxDim(statics.isOrthogonal)),
+    : statV(statics), boxDimensions{nullptr},
+      boxDimRef(*BoxDim(statics.isOrthogonal)),
 #ifdef VARIABLE_PARTICLE_NUMBER
       molLookupRef(molLookup),
 #else
@@ -52,7 +53,7 @@ System::System(StaticVals &statics, Setup &set, ulong &startStep,
 #if GOMC_LIB_MPI
       ms(multisim),
 #endif
-      moveSettings(boxDimRef), cellList(statics.mol, boxDimRef),
+      moveSettings(boxDimRef),
       coordinates(boxDimRef, com, molLookupRef, prng, statics.mol),
       com(boxDimRef, coordinates, molLookupRef, statics.mol),
       calcEnergy(statics, *this),
@@ -64,10 +65,11 @@ System::System(StaticVals &statics, Setup &set, ulong &startStep,
                     ms->replicaInputDirectoryPath
 #endif
                     ),
+      cellList(statics.forcefield, statics.mol, boxDimRef),
       vel(statics.forcefield, molLookupRef, statics.mol, prng),
       restartFromCheckpoint(set.config.in.restart.restartFromCheckpoint),
-      startStepRef(startStep), trueStep(0) {
-  calcEwald = NULL;
+      startStepRef(startStep), trueStep(0), moveTime{{}}, moves{{}} {
+  calcEwald = nullptr;
 #if GOMC_LIB_MPI
   if (ms->parallelTemperingEnabled)
     prngParallelTemp = new PRNG(molLookupRef);
@@ -91,10 +93,8 @@ System::System(StaticVals &statics, Setup &set, ulong &startStep,
 }
 
 System::~System() {
-  if (boxDimensions != NULL)
-    delete boxDimensions;
-  if (calcEwald != NULL)
-    delete calcEwald;
+  delete boxDimensions;
+  delete calcEwald;
   for (int m = 0; m < mv::MOVE_KINDS_TOTAL; ++m) {
     delete moves[m];
   }
@@ -127,7 +127,7 @@ void System::Init(Setup &set) {
   // Allocate space for reciprocal force
   atomForceRecRef.Init(set.pdb.atoms.beta.size());
   molForceRecRef.Init(com.Count());
-  cellList.SetCutoff();
+  cellList.Init();
   cellList.GridAll(boxDimRef, coordinates, molLookupRef);
 
   std::string method = set.config.sys.elect.method;
@@ -244,7 +244,7 @@ void System::InitLambda() {
 
     if (!found) {
       std::cout << "Error: No molecule of kind " << statV.freeEnVal.molType
-                << " in the simulation box! \n";
+                << " in the simulation box!\n";
       exit(EXIT_FAILURE);
     }
   }

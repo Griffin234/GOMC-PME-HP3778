@@ -31,6 +31,8 @@ public:
 
   Forcefield();
   ~Forcefield();
+  Forcefield(const Forcefield &) = delete;
+  Forcefield &operator=(const Forcefield &) = delete;
   // Initialize contained FFxxxx structs from setup data
   void Init(const Setup &set);
 
@@ -71,10 +73,10 @@ public:
   std::string interpolationType; // Interpolation type for tabulated potential
   bool isCHARMM;                 // Whether using CHARMM parameter format
   // PME-specific parameters
-  int pmeSplineOrder;    // B-spline order for PME
+  int pmeSplineOrder;               // B-spline order for PME
   double pmeGridSpacing[BOX_TOTAL]; // Target mesh spacing (Angstroms)
   bool pmeGridSpacingRead[BOX_TOTAL];
-  uint pmeRefreshFreq;   // Steps between full S_ref recomputes
+  uint pmeRefreshFreq; // Steps between full S_ref recomputes
 #if ENSEMBLE == GCMC
   bool isFugacity; // To check if we are using fugacity instead of chemical
                    // potential

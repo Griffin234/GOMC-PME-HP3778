@@ -29,6 +29,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 
+#ifndef NDEBUG
 inline void checkLastErrorCUDA(const char *file, int line) {
   cudaError_t code = cudaGetLastError();
   if (code != cudaSuccess) {
@@ -37,71 +38,96 @@ inline void checkLastErrorCUDA(const char *file, int line) {
     exit(code);
   }
 }
+#endif
 
 inline void printFreeMemory() {
   size_t free_byte;
   size_t total_byte;
   cudaError_t cuda_status = cudaMemGetInfo(&free_byte, &total_byte);
-
-  if (cudaSuccess != cuda_status) {
-    printf("Error: cudaMemGetInfo fails, %s \n",
+  if (cuda_status != cudaSuccess) {
+    printf("Error: cudaMemGetInfo fails, %s\n",
            cudaGetErrorString(cuda_status));
-    exit(1);
+    exit(cuda_status);
   }
-  double free_db = (double)free_byte;
-  double total_db = (double)total_byte;
-  double used_db = total_db - free_db;
-  printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n",
-         used_db / 1024.0 / 1024.0, free_db / 1024.0 / 1024.0,
-         total_db / 1024.0 / 1024.0);
+  float free_db = static_cast<float>(free_byte) / 1024.0f / 1024.0f;
+  float total_db = static_cast<float>(total_byte) / 1024.0f / 1024.0f;
+  float used_db = total_db - free_db;
+  printf("GPU memory usage: used = %fMB, free = %fMB, total = %fMB\n", used_db,
+         free_db, total_db);
 }
 
 class VariablesCUDA {
 public:
   VariablesCUDA() {
-    gpu_sigmaSq = NULL;
-    gpu_epsilon_Cn = NULL;
-    gpu_n = NULL;
-    gpu_VDW_Kind = NULL;
-    gpu_isMartini = NULL;
-    gpu_count = NULL;
-    gpu_rCut = NULL;
-    gpu_rCutSq = NULL;
-    gpu_rCutLow = NULL;
-    gpu_rOn = NULL;
-    gpu_alpha = NULL;
-    gpu_alphaSq = NULL;
-    gpu_rCutCoulomb = NULL;
-    gpu_rCutCoulombSq = NULL;
-    gpu_ewald = NULL;
-    gpu_diElectric_1 = NULL;
-    gpu_aForcex = NULL;
-    gpu_aForcey = NULL;
-    gpu_aForcez = NULL;
-    gpu_mForcex = NULL;
-    gpu_mForcey = NULL;
-    gpu_mForcez = NULL;
-    gpu_startAtomIdx = NULL;
-
-    //HP3778
-    gpu_bx = nullptr;
-    gpu_by = nullptr;
-    gpu_bz = nullptr;
+    cub_reduce_storage_size = 0;
+    cub_reduce_storage = nullptr;
+    cub_energyVec_storage_size = 0;
+    cub_energyVec_storage = nullptr;
+    gpu_sigmaSq = nullptr;
+    gpu_epsilon_Cn = nullptr;
+    gpu_n = nullptr;
+    gpu_VDW_Kind = nullptr;
+    gpu_isMartini = nullptr;
+    gpu_count = nullptr;
+    gpu_startAtomIdx = nullptr;
+    gpu_rCut = nullptr;
+    gpu_rCutSq = nullptr;
+    gpu_rCutCoulomb = nullptr;
+    gpu_rCutCoulombSq = nullptr;
+    gpu_rCutLow = nullptr;
+    gpu_rOn = nullptr;
+    gpu_alpha = nullptr;
+    gpu_alphaSq = nullptr;
+    gpu_ewald = nullptr;
+    gpu_diElectric_1 = nullptr;
     gpu_finalVal = nullptr;
-
-    // setting lambda values to null
-    gpu_molIndex = NULL;
-    gpu_lambdaVDW = NULL;
-    gpu_lambdaCoulomb = NULL;
-    gpu_isFraction = NULL;
+    gpu_particleUsed = nullptr;
+    gpu_aForcex = nullptr;
+    gpu_aForcey = nullptr;
+    gpu_aForcez = nullptr;
+    gpu_mForcex = nullptr;
+    gpu_mForcey = nullptr;
+    gpu_mForcez = nullptr;
+    gpu_energyVecLen = 0;
+    gpu_LJEn = nullptr;
+    gpu_REn = nullptr;
+    gpu_rT11 = nullptr;
+    gpu_rT12 = nullptr;
+    gpu_rT13 = nullptr;
+    gpu_rT22 = nullptr;
+    gpu_rT23 = nullptr;
+    gpu_rT33 = nullptr;
+    gpu_vT11 = nullptr;
+    gpu_vT12 = nullptr;
+    gpu_vT13 = nullptr;
+    gpu_vT22 = nullptr;
+    gpu_vT23 = nullptr;
+    gpu_vT33 = nullptr;
+    gpu_wT11 = nullptr;
+    gpu_wT12 = nullptr;
+    gpu_wT13 = nullptr;
+    gpu_wT22 = nullptr;
+    gpu_wT23 = nullptr;
+    gpu_wT33 = nullptr;
+    
+    // setting lambda values to nullptr
+    gpu_molIndex = nullptr;
+    gpu_lambdaVDW = nullptr;
+    gpu_lambdaCoulomb = nullptr;
+    gpu_isFraction = nullptr;
   }
+
+  size_t cub_reduce_storage_size;
+  void *cub_reduce_storage;
+  size_t cub_energyVec_storage_size;
+  void *cub_energyVec_storage;
   double *gpu_sigmaSq;
   double *gpu_epsilon_Cn;
   double *gpu_n;
   int *gpu_VDW_Kind;
   int *gpu_isMartini;
   int *gpu_count;
-  int *gpu_startAtomIdx; // start atom index of the molecule
+  int *gpu_startAtomIdx; // index of first atom in each molecule
   double *gpu_rCut, *gpu_rCutSq;
   double *gpu_rCutCoulomb, *gpu_rCutCoulombSq;
   double *gpu_rCutLow;
@@ -109,36 +135,40 @@ public:
   double *gpu_alpha, *gpu_alphaSq;
   int *gpu_ewald;
   double *gpu_diElectric_1;
+  double *gpu_finalVal;
   double *gpu_x, *gpu_y, *gpu_z;
+  double *gpu_molCharge, *gpu_particleCharge;
+  int *gpu_particleKind, *gpu_particleMol, *gpu_particleUsed;
   double *gpu_nx, *gpu_ny, *gpu_nz;
   double *gpu_dx, *gpu_dy, *gpu_dz;
   double **gpu_kx, **gpu_ky, **gpu_kz;
   double **gpu_kxRef, **gpu_kyRef, **gpu_kzRef;
   double **gpu_sumRnew, **gpu_sumInew, **gpu_sumRref, **gpu_sumIref;
+  int *gpu_neighborListMaxSz, **gpu_neighborList, **gpu_cellStartIndex;
   double **gpu_prefact, **gpu_prefactRef;
   double **gpu_hsqr, **gpu_hsqrRef;
+  double *gpu_recipEnergies;
   double *gpu_comx, *gpu_comy, *gpu_comz;
+  int gpu_energyVecLen;
+  double *gpu_LJEn, *gpu_REn;
   double *gpu_rT11, *gpu_rT12, *gpu_rT13;
   double *gpu_rT22, *gpu_rT23, *gpu_rT33;
   double *gpu_vT11, *gpu_vT12, *gpu_vT13;
   double *gpu_vT22, *gpu_vT23, *gpu_vT33;
+  double *gpu_wT11, *gpu_wT12, *gpu_wT13;
+  double *gpu_wT22, *gpu_wT23, *gpu_wT33;
   double **gpu_cell_x, **gpu_cell_y, **gpu_cell_z;
   double **gpu_Invcell_x, **gpu_Invcell_y, **gpu_Invcell_z;
   int *gpu_nonOrth;
   double *gpu_aForcex, *gpu_aForcey, *gpu_aForcez;
   double *gpu_mForcex, *gpu_mForcey, *gpu_mForcez;
   double *gpu_mTorquex, *gpu_mTorquey, *gpu_mTorquez;
-  int *gpu_inForceRange;
+  int8_t *gpu_inForceRange, *gpu_isMolInvolved;
+  int *gpu_molInvolved;
   double *gpu_aForceRecx, *gpu_aForceRecy, *gpu_aForceRecz;
   double *gpu_mForceRecx, *gpu_mForceRecy, *gpu_mForceRecz;
   double *gpu_rMin, *gpu_expConst, *gpu_rMaxSq;
-
-  double *gpu_r_k_x, *gpu_r_k_y, *gpu_r_k_z;
-  double *gpu_t_k_x, *gpu_t_k_y, *gpu_t_k_z; 
-
-  //HP3778
-  double *gpu_bx, *gpu_by, *gpu_bz;
-  double *gpu_finalVal;
+  double *gpu_rt_k_x, *gpu_rt_k_y, *gpu_rt_k_z;
 
   // lambda structure
   int *gpu_molIndex;
@@ -148,5 +178,6 @@ public:
   // new pair interaction calculation done on GPU
   int *gpu_cellVector, *gpu_mapParticleToCell;
 };
-#endif
+
+#endif /*GOMC_CUDA*/
 #endif /*VARIABLES_CUDA_H*/

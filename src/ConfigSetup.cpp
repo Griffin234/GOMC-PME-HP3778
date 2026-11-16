@@ -43,10 +43,9 @@ ConfigSetup::ConfigSetup(void) {
   sys.step.initStepRead = false;
   sys.step.initStep = ULONG_MAX;
   sys.step.pressureCalcFreq = ULONG_MAX;
-  sys.step.pressureCalc = true;
+  sys.step.pressureCalc = false;
   sys.step.parallelTempFreq = ULONG_MAX;
   sys.step.parallelTemperingAttemptsPerExchange = 0;
-  sys.step.pressureCalc = false;
   in.ffKind.numOfKinds = 0;
   sys.exclude.EXCLUDE_KIND = UINT_MAX;
   in.prng.kind = "";
@@ -161,12 +160,9 @@ bool ConfigSetup::checkBool(std::string str) {
   }
 
   // capitalize string
-  for (uint k = 0; k < str.length(); k++) {
-    str[k] = toupper(str[k]);
-  }
+  for (uint k = 0; k < str.length(); k++) { str[k] = toupper(str[k]); }
 
-  if (str == "ON" || str == "TRUE" || str == "YES")
-    return true;
+  if (str == "ON" || str == "TRUE" || str == "YES") return true;
   else if (str == "OFF" || str == "FALSE" || str == "NO")
     return false;
   std::cout << "ERROR: " << str << "couldn't be recognized!" << std::endl;
@@ -178,26 +174,19 @@ bool ConfigSetup::checkBool(std::string str) {
 // string should be a boolean.
 bool ConfigSetup::isBool(std::string str) {
   // short circuit for long strings
-  if (str.length() > 5)
-    return false;
+  if (str.length() > 5) return false;
 
   // capitalize string
-  for (uint k = 0; k < str.length(); k++) {
-    str[k] = toupper(str[k]);
-  }
+  for (uint k = 0; k < str.length(); k++) { str[k] = toupper(str[k]); }
 
   return (str == "ON" || str == "TRUE" || str == "YES" || str == "OFF" ||
           str == "FALSE" || str == "NO");
 }
 
 bool ConfigSetup::CheckString(std::string str1, std::string str2) {
-  for (uint k = 0; k < str1.length(); k++) {
-    str1[k] = toupper(str1[k]);
-  }
+  for (uint k = 0; k < str1.length(); k++) { str1[k] = toupper(str1[k]); }
 
-  for (uint j = 0; j < str2.length(); j++) {
-    str2[j] = toupper(str2[j]);
-  }
+  for (uint j = 0; j < str2.length(); j++) { str2[j] = toupper(str2[j]); }
 
   return (str1 == str2);
 }
@@ -208,22 +197,21 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
   reader.Open(fileName);
   printf("\n%-40s %-s\n", "Reading Input File:", fileName);
   while (reader.readNextLine(line)) {
-    if (line.size() == 0)
-      continue;
+    if (line.size() == 0) continue;
 
     if (CheckString(line[0], "Restart")) {
       in.restart.enable = checkBool(line[1]);
       if (in.restart.enable) {
-        printf("%-40s %-s \n", "Info: Restart simulation", "Active");
+        printf("%-40s %-s\n", "Info: Restart simulation", "Active");
       }
     } else if (CheckString(line[0], "FirstStep")) {
       in.restart.step = stringtoi(line[1]);
     } else if (CheckString(line[0], "PRNG")) {
       if (line[1] == "RANDOM") {
-        printf("%-40s %-s \n", "Info: Random seed", "Active");
+        printf("%-40s %-s\n", "Info: Random seed", "Active");
         in.prng.kind = line[1];
       } else if (line[1] == "INTSEED") {
-        printf("%-40s %-s \n", "Info: Integer seed", "Active");
+        printf("%-40s %-s\n", "Info: Integer seed", "Active");
         in.prng.kind = line[1];
       } else {
         std::cout << "ERROR: PRNG can only be \"RANDOM\" or \"INTSEED\"!\n";
@@ -232,14 +220,14 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "PRNG_ParallelTempering")) {
       in.prngParallelTempering.kind = line[1];
       if ("RANDOM" == line[1])
-        printf("%-40s %-s \n", "Info: Random seed", "Active");
+        printf("%-40s %-s\n", "Info: Random seed", "Active");
     } else if (CheckString(line[0], "ParaTypeCHARMM")) {
       if (checkBool(line[1])) {
         in.ffKind.numOfKinds++;
         in.ffKind.isEXOTIC = false;
         in.ffKind.isMARTINI = false;
         in.ffKind.isCHARMM = true;
-        printf("%-40s %-s \n", "Info: Parameter file", "CHARMM format");
+        printf("%-40s %-s\n", "Info: Parameter file", "CHARMM format");
       }
     } else if (CheckString(line[0], "ParaTypeEXOTIC")) {
       if (checkBool(line[1])) {
@@ -247,7 +235,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         in.ffKind.isCHARMM = false;
         in.ffKind.isMARTINI = false;
         in.ffKind.isEXOTIC = true;
-        printf("%-40s %-s \n", "Info: Parameter file", "MIE format");
+        printf("%-40s %-s\n", "Info: Parameter file", "MIE format");
       }
     } else if (CheckString(line[0], "ParaTypeMIE")) {
       if (checkBool(line[1])) {
@@ -255,7 +243,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         in.ffKind.isCHARMM = false;
         in.ffKind.isMARTINI = false;
         in.ffKind.isEXOTIC = true;
-        printf("%-40s %-s \n", "Info: Parameter file", "MIE format");
+        printf("%-40s %-s\n", "Info: Parameter file", "MIE format");
       }
     } else if (CheckString(line[0], "ParaTypeMARTINI")) {
       if (checkBool(line[1])) {
@@ -263,7 +251,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         in.ffKind.isEXOTIC = false;
         in.ffKind.isMARTINI = true;
         in.ffKind.isCHARMM = true;
-        printf("%-40s %-s \n", "Info: Parameter file",
+        printf("%-40s %-s\n", "Info: Parameter file",
                "MARTINI using CHARMM format");
       }
     } else if (CheckString(line[0], "Parameters")) {
@@ -417,41 +405,41 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "Potential")) {
       if (CheckString(line[1], "VDW")) {
         sys.ff.VDW_KIND = sys.ff.VDW_STD_KIND;
-        printf("%-40s %-s \n", "Info: Standard Lennard-Jones potential",
+        printf("%-40s %-s\n", "Info: Standard Lennard-Jones potential",
                "Active");
       } else if (CheckString(line[1], "SHIFT")) {
         sys.ff.VDW_KIND = sys.ff.VDW_SHIFT_KIND;
-        printf("%-40s %-s \n", "Info: Shift truncated potential", "Active");
+        printf("%-40s %-s\n", "Info: Shift truncated potential", "Active");
       } else if (CheckString(line[1], "SWITCH")) {
         sys.ff.VDW_KIND = sys.ff.VDW_SWITCH_KIND;
-        printf("%-40s %-s \n", "Info: Switch truncated potential", "Active");
+        printf("%-40s %-s\n", "Info: Switch truncated potential", "Active");
       } else if (CheckString(line[1], "EXP6")) {
         sys.ff.VDW_KIND = sys.ff.VDW_EXP6_KIND;
-        printf("%-40s %-s \n", "Info: Exp-6 potential", "Active");
+        printf("%-40s %-s\n", "Info: Exp-6 potential", "Active");
       } else if (CheckString(line[1], "TABULATED")) {
         sys.ff.VDW_KIND = sys.ff.VDW_TABULATED_KIND;
-        printf("%-40s %-s \n", "Info: Tabulated potential", "Active");
+        printf("%-40s %-s\n", "Info: Tabulated potential", "Active");
       }
     } else if (CheckString(line[0], "TableInterpType")) {
       sys.ff.interpolationType = line[1];
       std::cout << "Info: Interpolation Type set to "
                 << sys.ff.interpolationType << std::endl;
-      printf("%-40s %-s \n", "Info: Interpolation Type", line[1].c_str());
+      printf("%-40s %-s\n", "Info: Interpolation Type", line[1].c_str());
     } else if (CheckString(line[0], "LRC")) {
       sys.ff.doTailCorr = checkBool(line[1]);
       if (sys.ff.doTailCorr)
-        printf("%-40s %-s \n", "Info: Long Range Correction", "Active");
+        printf("%-40s %-s\n", "Info: Long Range Correction", "Active");
       else
-        printf("%-40s %-s \n", "Info: Long Range Correction", "Inactive");
+        printf("%-40s %-s\n", "Info: Long Range Correction", "Inactive");
     } else if (CheckString(line[0], "IPC")) {
       sys.ff.doImpulsePressureCorr = checkBool(line[1]);
       if (sys.ff.doImpulsePressureCorr)
-        printf("%-40s %-s \n", "Info: Impulse Pressure Correction", "Active");
+        printf("%-40s %-s\n", "Info: Impulse Pressure Correction", "Active");
       else
-        printf("%-40s %-s \n", "Info: Impulse Pressure Correction", "Inactive");
+        printf("%-40s %-s\n", "Info: Impulse Pressure Correction", "Inactive");
     } else if (CheckString(line[0], "Rswitch")) {
       sys.ff.rswitch = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Switch distance", sys.ff.rswitch);
+      printf("%-40s %-4.4f\n", "Info: Switch distance", sys.ff.rswitch);
     } else if (CheckString(line[0], "SubVolumeBox")) {
       if (line.size() == 3) {
         int idx = stringtoi(line[1]);
@@ -494,9 +482,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() >= 3) {
         int idx = stringtoi(line[1]);
         std::vector<std::string> temp;
-        for (int k = 2; k < (int)line.size(); k++) {
-          temp.push_back(line[k]);
-        }
+        for (int k = 2; k < (int)line.size(); k++) { temp.push_back(line[k]); }
         sys.targetedSwapCollection.AddsubVolumeAtomList(idx, temp);
         sys.intraTargetedSwapCollection.AddsubVolumeAtomList(idx, temp);
       } else {
@@ -526,9 +512,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         int idx = stringtoi(line[1]);
         std::vector<std::string> temp;
 
-        for (int k = 2; k < (int)line.size(); k++) {
-          temp.push_back(line[k]);
-        }
+        for (int k = 2; k < (int)line.size(); k++) { temp.push_back(line[k]); }
         sys.targetedSwapCollection.AddsubVolumeResKind(idx, temp);
         sys.intraTargetedSwapCollection.AddsubVolumeResKind(idx, temp);
       } else {
@@ -643,9 +627,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() >= 3) {
         printf("%-41s", "Info: Atom Names in BackBone of Small Molecule Kind ");
         for (uint i = 1; i < line.size() - 1; i += 2) {
-          if (i != 1) {
-            printf(" , ");
-          }
+          if (i != 1) { printf(" , "); }
           std::string atom1 = line[i];
           std::string atom2 = line[i + 1];
           sys.memcVal.smallBBAtom1.push_back(atom1);
@@ -667,9 +649,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() >= 3) {
         printf("%-41s", "Info: Atom Names in BackBone of Large Molecule Kind ");
         for (uint i = 1; i < line.size() - 1; i += 2) {
-          if (i != 1) {
-            printf(" , ");
-          }
+          if (i != 1) { printf(" , "); }
           std::string atom1 = line[i];
           std::string atom2 = line[i + 1];
           sys.memcVal.largeBBAtom1.push_back(atom1);
@@ -696,13 +676,13 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "Exclude")) {
       if (line[1] == sys.exclude.EXC_ONETWO) {
         sys.exclude.EXCLUDE_KIND = sys.exclude.EXC_ONETWO_KIND;
-        printf("%-40s %-s \n", "Info: Exclude", "ONE-TWO");
+        printf("%-40s %-s\n", "Info: Exclude", "ONE-TWO");
       } else if (line[1] == sys.exclude.EXC_ONETHREE) {
         sys.exclude.EXCLUDE_KIND = sys.exclude.EXC_ONETHREE_KIND;
-        printf("%-40s %-s \n", "Info: Exclude", "ONE-THREE");
+        printf("%-40s %-s\n", "Info: Exclude", "ONE-THREE");
       } else if (line[1] == sys.exclude.EXC_ONEFOUR) {
         sys.exclude.EXCLUDE_KIND = sys.exclude.EXC_ONEFOUR_KIND;
-        printf("%-40s %-s \n", "Info: Exclude", "ONE-FOUR");
+        printf("%-40s %-s\n", "Info: Exclude", "ONE-FOUR");
       }
     } else if (CheckString(line[0], "ElectrostaticMethod")) {
       sys.elect.method = line[1];
@@ -761,14 +741,14 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.elect.method = "Ewald";
         printf("Warning: 'Ewald' keyword is deprecated. Use "
                "'ElectrostaticMethod Ewald' instead.\n");
-        printf("%-40s %-s \n", "Info: Ewald Summation", "Active");
+        printf("%-40s %-s\n", "Info: Ewald Summation", "Active");
       }
     } else if (CheckString(line[0], "ElectroStatic")) {
       sys.elect.enable = checkBool(line[1]);
       sys.elect.readElect = true;
     } else if (CheckString(line[0], "Tolerance")) {
       sys.elect.tolerance = stringtod(line[1]);
-      printf("%-40s %-1.3E \n", "Info: Ewald Summation Tolerance",
+      printf("%-40s %-1.3E\n", "Info: Ewald Summation Tolerance",
              sys.elect.tolerance);
     } else if (CheckString(line[0], "RcutCoulomb")) {
       if (line.size() == 3) {
@@ -791,41 +771,40 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.elect.method = "EwaldCached";
         printf("Warning: 'CachedFourier' keyword is deprecated. Use "
                "'ElectrostaticMethod EwaldCached' instead.\n");
-        printf("%-40s %-s \n", "Info: Cache Ewald Fourier", "Active");
+        printf("%-40s %-s\n", "Info: Cache Ewald Fourier", "Active");
       } else {
-        printf("%-40s %-s \n", "Info: Cache Ewald Fourier", "Inactive");
+        printf("%-40s %-s\n", "Info: Cache Ewald Fourier", "Inactive");
       }
     } else if (CheckString(line[0], "1-4scaling")) {
       sys.elect.oneFourScale = stringtod(line[1]);
     } else if (CheckString(line[0], "Dielectric")) {
       sys.elect.dielectric = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Dielectric", sys.elect.dielectric);
+      printf("%-40s %-4.4f\n", "Info: Dielectric", sys.elect.dielectric);
     } else if (CheckString(line[0], "RunSteps")) {
       sys.step.total = stringtoi(line[1]);
-      printf("%-40s %-lu \n", "Info: Total number of steps", sys.step.total);
+      printf("%-40s %-lu\n", "Info: Total number of steps", sys.step.total);
       if (sys.step.total == 0) {
         in.restart.recalcTrajectory = true;
-        printf("%-40s %-s \n", "Info: Recalculate Trajectory", "Active");
+        printf("%-40s %-s\n", "Info: Recalculate Trajectory", "Active");
         std::cout
             << "ERROR: Recalculate Trajectory is not currently supported!\n";
         exit(EXIT_FAILURE);
       }
     } else if (CheckString(line[0], "EqSteps")) {
       sys.step.equil = stringtoi(line[1]);
-      printf("%-40s %-lu \n", "Info: Number of equilibration steps",
+      printf("%-40s %-lu\n", "Info: Number of equilibration steps",
              sys.step.equil);
     } else if (CheckString(line[0], "AdjSteps")) {
       sys.step.adjustment = stringtoi(line[1]);
-      printf("%-40s %-lu \n", "Info: Move adjustment frequency",
+      printf("%-40s %-lu\n", "Info: Move adjustment frequency",
              sys.step.adjustment);
     } else if (CheckString(line[0], "InitStep")) {
       sys.step.initStep = stringtoi(line[1]);
       sys.step.initStepRead = true;
-      printf("%-40s %-lu \n", "Info: InitStep", sys.step.initStep);
+      printf("%-40s %-lu\n", "Info: InitStep", sys.step.initStep);
     } else if (CheckString(line[0], "PressureCalc")) {
       sys.step.pressureCalc = checkBool(line[1]);
-      if (line.size() == 3)
-        sys.step.pressureCalcFreq = stringtoi(line[2]);
+      if (line.size() == 3) sys.step.pressureCalcFreq = stringtoi(line[2]);
 
       if (sys.step.pressureCalc && (line.size() == 2)) {
         std::cout
@@ -833,83 +812,82 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         exit(EXIT_FAILURE);
       }
       if (!sys.step.pressureCalc)
-        printf("%-40s %-s \n", "Info: Pressure calculation", "Inactive");
+        printf("%-40s %-s\n", "Info: Pressure calculation", "Inactive");
       else {
-        printf("%-40s %-lu \n", "Info: Pressure calculation frequency",
+        printf("%-40s %-lu\n", "Info: Pressure calculation frequency",
                sys.step.pressureCalcFreq);
       }
     } else if (CheckString(line[0], "ParallelTemperingFreq")) {
       sys.step.parallelTemp = checkBool(line[1]);
-      if (line.size() == 3)
-        sys.step.parallelTempFreq = stringtoi(line[2]);
+      if (line.size() == 3) sys.step.parallelTempFreq = stringtoi(line[2]);
 
       if (sys.step.parallelTemp && (line.size() == 2)) {
         std::cout << "ERROR: Parallel Tempering frequency is not specified!\n";
         exit(EXIT_FAILURE);
       }
       if (!sys.step.parallelTemp)
-        printf("%-40s %-s \n", "Info: Parallel Tempering", "Inactive");
+        printf("%-40s %-s\n", "Info: Parallel Tempering", "Inactive");
       else {
-        printf("%-40s %-lu \n", "Info: Parallel Tempering frequency",
+        printf("%-40s %-lu\n", "Info: Parallel Tempering frequency",
                sys.step.parallelTempFreq);
       }
     } else if (CheckString(line[0], "ParallelTemperingAttemptsPerExchange")) {
       sys.step.parallelTemperingAttemptsPerExchange = stringtoi(line[1]);
-      printf("%-40s %lu \n", "Info: Number of Attempts Per Exchange Move",
+      printf("%-40s %lu\n", "Info: Number of Attempts Per Exchange Move",
              sys.step.parallelTemperingAttemptsPerExchange);
     } else if (CheckString(line[0], "DisFreq")) {
       sys.moves.displace = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Displacement move frequency",
+      printf("%-40s %-4.4f\n", "Info: Displacement move frequency",
              sys.moves.displace);
     } else if (CheckString(line[0], "MultiParticleFreq")) {
       sys.moves.multiParticle = stringtod(line[1]);
       if (sys.moves.multiParticle > 0.0) {
         sys.moves.multiParticleEnabled = true;
       }
-      printf("%-40s %-4.4f \n", "Info: Multi-Particle move frequency",
+      printf("%-40s %-4.4f\n", "Info: Multi-Particle move frequency",
              sys.moves.multiParticle);
     } else if (CheckString(line[0], "MultiParticleLiquid")) {
       sys.moves.multiParticleLiquid = checkBool(line[1]);
-      printf("%-40s %-s \n", "Info: Multi-Particle liquid box move",
+      printf("%-40s %-s\n", "Info: Multi-Particle liquid box move",
              sys.moves.multiParticleLiquid ? "Active" : "Inactive");
     } else if (CheckString(line[0], "MultiParticleGas")) {
       sys.moves.multiParticleGas = checkBool(line[1]);
-      printf("%-40s %-s \n", "Info: Multi-Particle gas box move",
+      printf("%-40s %-s\n", "Info: Multi-Particle gas box move",
              sys.moves.multiParticleGas ? "Active" : "Inactive");
     } else if (CheckString(line[0], "MultiParticleBrownianFreq")) {
       sys.moves.multiParticleBrownian = stringtod(line[1]);
       if (sys.moves.multiParticleBrownian > 0.0) {
         sys.moves.multiParticleEnabled = true;
       }
-      printf("%-40s %-4.4f \n", "Info: Multi-Particle Brownian move frequency",
+      printf("%-40s %-4.4f\n", "Info: Multi-Particle Brownian move frequency",
              sys.moves.multiParticleBrownian);
     } else if (CheckString(line[0], "IntraSwapFreq")) {
       sys.moves.intraSwap = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Intra-Swap move frequency",
+      printf("%-40s %-4.4f\n", "Info: Intra-Swap move frequency",
              sys.moves.intraSwap);
     } else if (CheckString(line[0], "RegrowthFreq")) {
       sys.moves.regrowth = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Regrowth move frequency",
+      printf("%-40s %-4.4f\n", "Info: Regrowth move frequency",
              sys.moves.regrowth);
     } else if (CheckString(line[0], "CrankShaftFreq")) {
       sys.moves.crankShaft = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Crank-Shaft move frequency",
+      printf("%-40s %-4.4f\n", "Info: Crank-Shaft move frequency",
              sys.moves.crankShaft);
     } else if (CheckString(line[0], "IntraTargetedSwapFreq")) {
       sys.moves.intraTargetedSwap = stringtod(line[1]);
       if (sys.moves.intraTargetedSwap > 0.0) {
         sys.intraTargetedSwapCollection.enable = true;
       }
-      printf("%-40s %-4.4f \n", "Info: Intra-Targeted-Swap move frequency",
+      printf("%-40s %-4.4f\n", "Info: Intra-Targeted-Swap move frequency",
              sys.moves.intraTargetedSwap);
     } else if (CheckString(line[0], "RotFreq")) {
       sys.moves.rotate = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Rotation move frequency",
+      printf("%-40s %-4.4f\n", "Info: Rotation move frequency",
              sys.moves.rotate);
     } else if (CheckString(line[0], "IntraMEMC-1Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.intraMemc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: IntraMEMC-1 move frequency",
+        printf("%-40s %-4.4f\n", "Info: IntraMEMC-1 move frequency",
                sys.moves.intraMemc);
         sys.intraMemcVal.enable = true;
         sys.intraMemcVal.MEMC1 = true;
@@ -917,7 +895,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "IntraMEMC-2Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.intraMemc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: IntraMEMC-2 move frequency",
+        printf("%-40s %-4.4f\n", "Info: IntraMEMC-2 move frequency",
                sys.moves.intraMemc);
         sys.intraMemcVal.enable = true;
         sys.intraMemcVal.MEMC2 = true;
@@ -925,7 +903,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "IntraMEMC-3Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.intraMemc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: IntraMEMC-3 move frequency",
+        printf("%-40s %-4.4f\n", "Info: IntraMEMC-3 move frequency",
                sys.moves.intraMemc);
         sys.intraMemcVal.enable = true;
         sys.intraMemcVal.MEMC3 = true;
@@ -934,8 +912,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
 #ifdef VARIABLE_VOLUME
     else if (CheckString(line[0], "VolFreq")) {
       sys.moves.volume = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Volume move frequency",
-             sys.moves.volume);
+      printf("%-40s %-4.4f\n", "Info: Volume move frequency", sys.moves.volume);
     } else if (CheckString(line[0], "useConstantArea")) {
       sys.volume.cstArea = checkBool(line[1]);
       if (sys.volume.cstArea)
@@ -945,42 +922,39 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "FixVolBox0")) {
       sys.volume.cstVolBox0 = checkBool(line[1]);
       if (sys.volume.cstVolBox0)
-        printf("%-40s %-d \n", "Info: Fix volume box", 0);
+        printf("%-40s %-d\n", "Info: Fix volume box", 0);
     }
 #endif
 #if ENSEMBLE == GEMC || ENSEMBLE == GCMC
     else if (CheckString(line[0], "SwapFreq")) {
       sys.moves.transfer = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: Molecule swap move frequency",
+      printf("%-40s %-4.4f\n", "Info: Molecule swap move frequency",
              sys.moves.transfer);
     } else if (CheckString(line[0], "MEMC-1Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.memc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: MEMC-1 move frequency",
-               sys.moves.memc);
+        printf("%-40s %-4.4f\n", "Info: MEMC-1 move frequency", sys.moves.memc);
         sys.memcVal.enable = true;
         sys.memcVal.MEMC1 = true;
       }
     } else if (CheckString(line[0], "MEMC-2Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.memc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: MEMC-2 move frequency",
-               sys.moves.memc);
+        printf("%-40s %-4.4f\n", "Info: MEMC-2 move frequency", sys.moves.memc);
         sys.memcVal.enable = true;
         sys.memcVal.MEMC2 = true;
       }
     } else if (CheckString(line[0], "MEMC-3Freq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.memc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: MEMC-3 move frequency",
-               sys.moves.memc);
+        printf("%-40s %-4.4f\n", "Info: MEMC-3 move frequency", sys.moves.memc);
         sys.memcVal.enable = true;
         sys.memcVal.MEMC3 = true;
       }
     } else if (CheckString(line[0], "MEMC-2-LiqFreq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.memc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: MEMC-2-Liq move frequency",
+        printf("%-40s %-4.4f\n", "Info: MEMC-2-Liq move frequency",
                sys.moves.memc);
         sys.memcVal.enable = true;
         sys.memcVal.MEMC2Liq = true;
@@ -988,7 +962,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
     } else if (CheckString(line[0], "MEMC-3-LiqFreq")) {
       if (stringtod(line[1]) > 0.0) {
         sys.moves.memc = stringtod(line[1]);
-        printf("%-40s %-4.4f \n", "Info: MEMC-3-Liq move frequency",
+        printf("%-40s %-4.4f\n", "Info: MEMC-3-Liq move frequency",
                sys.moves.memc);
         sys.memcVal.enable = true;
         sys.memcVal.MEMC3Liq = true;
@@ -998,15 +972,13 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (sys.moves.targetedSwap > 0.0) {
         sys.targetedSwapCollection.enable = true;
       }
-      printf("%-40s %-4.4f \n", "Info: Targeted-Swap move frequency",
+      printf("%-40s %-4.4f\n", "Info: Targeted-Swap move frequency",
              sys.moves.targetedSwap);
     } else if (CheckString(line[0], "NeMTMCFreq")) {
       sys.moves.neMolTransfer = stringtod(line[1]);
-      printf("%-40s %-4.4f \n", "Info: nonEq Mol-Transfer move frequency",
+      printf("%-40s %-4.4f\n", "Info: nonEq Mol-Transfer move frequency",
              sys.moves.neMolTransfer);
-      if (sys.moves.neMolTransfer > 0.0) {
-        sys.neMTMCVal.enable = true;
-      }
+      if (sys.moves.neMolTransfer > 0.0) { sys.neMTMCVal.enable = true; }
     } else if (CheckString(line[0], "LambdaCoulomb")) {
       if (line.size() > 1) {
         sys.neMTMCVal.readLambdaCoulomb = true;
@@ -1033,7 +1005,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() > 1) {
         sys.neMTMCVal.readRelaxSteps = true;
         sys.neMTMCVal.relaxSteps = stringtoi(line[1]);
-        printf("%-40s %-4d \n", "Info: NeMTMC Relaxing Steps",
+        printf("%-40s %-4d\n", "Info: NeMTMC Relaxing Steps",
                sys.neMTMCVal.relaxSteps);
       }
     } else if (CheckString(line[0], "MultiParticleRelaxing")) {
@@ -1042,10 +1014,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.neMTMCVal.readMPEnable = true;
         if (sys.neMTMCVal.MPEnable) {
           sys.moves.multiParticleEnabled = sys.neMTMCVal.MPEnable;
-          printf("%-40s %s \n", "Info: NeMTMC Relaxing Using MultiParticle",
+          printf("%-40s %s\n", "Info: NeMTMC Relaxing Using MultiParticle",
                  "Active");
         } else {
-          printf("%-40s %s \n", "Info: NeMTMC Relaxing Using MultiParticle",
+          printf("%-40s %s\n", "Info: NeMTMC Relaxing Using MultiParticle",
                  "Inactive");
         }
       }
@@ -1055,10 +1027,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.neMTMCVal.readMPBEnable = true;
         if (sys.neMTMCVal.MPBEnable) {
           sys.moves.multiParticleEnabled = sys.neMTMCVal.MPBEnable;
-          printf("%-40s %s \n",
+          printf("%-40s %s\n",
                  "Info: NeMTMC Relaxing Using MultiParticleBrownian", "Active");
         } else {
-          printf("%-40s %s \n",
+          printf("%-40s %s\n",
                  "Info: NeMTMC Relaxing Using MultiParticleBrownian",
                  "Inactive");
         }
@@ -1067,21 +1039,21 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() > 1) {
         sys.neMTMCVal.scalePower = stringtoi(line[1]);
         sys.neMTMCVal.scalePowerRead = true;
-        printf("%-40s %-4d \n", "Info: Soft-core scaling power(p)",
+        printf("%-40s %-4d\n", "Info: Soft-core scaling power(p)",
                sys.neMTMCVal.scalePower);
       }
     } else if (CheckString(line[0], "ScaleAlpha")) {
       if (line.size() > 1) {
         sys.neMTMCVal.scaleAlpha = stringtod(line[1]);
         sys.neMTMCVal.scaleAlphaRead = true;
-        printf("%-40s %-4.4f \n", "Info: Soft-core softness(alpha)",
+        printf("%-40s %-4.4f\n", "Info: Soft-core softness(alpha)",
                sys.neMTMCVal.scaleAlpha);
       }
     } else if (CheckString(line[0], "MinSigma")) {
       if (line.size() > 1) {
         sys.neMTMCVal.scaleSigma = stringtod(line[1]);
         sys.neMTMCVal.scaleSigmaRead = true;
-        printf("%-40s %-4.4f A \n", "Info: Soft-core minimum sigma",
+        printf("%-40s %-4.4f A\n", "Info: Soft-core minimum sigma",
                sys.neMTMCVal.scaleSigma);
       }
     } else if (CheckString(line[0], "ScaleCoulomb")) {
@@ -1089,10 +1061,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.neMTMCVal.scaleCoulomb = checkBool(line[1]);
         sys.neMTMCVal.scaleCoulombRead = true;
         if (sys.neMTMCVal.scaleCoulomb) {
-          printf("%-40s %s \n", "Info: Soft-core for Coulombic interaction",
+          printf("%-40s %s\n", "Info: Soft-core for Coulombic interaction",
                  "Active");
         } else {
-          printf("%-40s %s \n", "Info: Soft-core for Coulombic interaction",
+          printf("%-40s %s\n", "Info: Soft-core for Coulombic interaction",
                  "Inactive");
         }
       }
@@ -1101,7 +1073,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.neMTMCVal.conformationProb = stringtod(line[1]);
         sys.neMTMCVal.readConformationProb = true;
         if (sys.neMTMCVal.conformationProb <= 1.0f) {
-          printf("%-40s %-4.4f \n",
+          printf("%-40s %-4.4f\n",
                  "Info: Intra-Swap/Regrowth Frequency in NeMTMC Relaxing Steps",
                  sys.neMTMCVal.conformationProb);
         }
@@ -1111,7 +1083,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.neMTMCVal.lambdaLimit = stringtod(line[1]);
         sys.neMTMCVal.readLambdaLimit = true;
         if (sys.neMTMCVal.lambdaLimit <= 1.0f) {
-          printf("%-40s %-4.4f \n",
+          printf("%-40s %-4.4f\n",
                  "Info: Lambda VDW limit for Intra-Swap move in NeMTMC "
                  "Relaxing Steps",
                  sys.neMTMCVal.lambdaLimit);
@@ -1174,19 +1146,19 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
 #ifdef VARIABLE_PARTICLE_NUMBER
     else if (CheckString(line[0], "CBMC_First")) {
       sys.cbmcTrials.nonbonded.first = stringtoi(line[1]);
-      printf("%-40s %-4d \n", "Info: CBMC First atom trials",
+      printf("%-40s %-4d\n", "Info: CBMC First atom trials",
              sys.cbmcTrials.nonbonded.first);
     } else if (CheckString(line[0], "CBMC_Nth")) {
       sys.cbmcTrials.nonbonded.nth = stringtoi(line[1]);
-      printf("%-40s %-4d \n", "Info: CBMC Secondary atom trials",
+      printf("%-40s %-4d\n", "Info: CBMC Secondary atom trials",
              sys.cbmcTrials.nonbonded.nth);
     } else if (CheckString(line[0], "CBMC_Ang")) {
       sys.cbmcTrials.bonded.ang = stringtoi(line[1]);
-      printf("%-40s %-4d \n", "Info: CBMC Angle trials",
+      printf("%-40s %-4d\n", "Info: CBMC Angle trials",
              sys.cbmcTrials.bonded.ang);
     } else if (CheckString(line[0], "CBMC_Dih")) {
       sys.cbmcTrials.bonded.dih = stringtoi(line[1]);
-      printf("%-40s %-4d \n", "Info: CBMC Dihedral trials",
+      printf("%-40s %-4d\n", "Info: CBMC Dihedral trials",
              sys.cbmcTrials.bonded.dih);
     }
 #endif
@@ -1266,15 +1238,15 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() > 1) {
         sys.freeEn.enable = checkBool(line[1]);
         if (sys.freeEn.enable) {
-          printf("%-40s %-s \n", "Info: Free Energy Calculation", "Active");
+          printf("%-40s %-s\n", "Info: Free Energy Calculation", "Active");
           if (line.size() > 2) {
             sys.freeEn.frequency = stringtoi(line[2]);
             sys.freeEn.freqRead = true;
-            printf("%-40s %-4d \n", "Info: Free Energy Frequency",
+            printf("%-40s %-4d\n", "Info: Free Energy Frequency",
                    sys.freeEn.frequency);
           }
         } else {
-          printf("%-40s %-s \n", "Info: Free Energy Calculation", "Inactive");
+          printf("%-40s %-s\n", "Info: Free Energy Calculation", "Inactive");
         }
       }
     } else if (CheckString(line[0], "MoleculeType")) {
@@ -1284,7 +1256,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         if (line.size() > 2) {
           sys.freeEn.molIndex = stringtoi(line[2]);
           sys.freeEn.molIndexRead = true;
-          printf("%-40s %-d in %-s \n", "Info: Free Energy Calc for Molecule",
+          printf("%-40s %-d in %-s\n", "Info: Free Energy Calc for Molecule",
                  sys.freeEn.molIndex, sys.freeEn.molType.c_str());
         }
       }
@@ -1292,28 +1264,28 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       if (line.size() > 1) {
         sys.freeEn.iState = stringtoi(line[1]);
         sys.freeEn.iStateRead = true;
-        printf("%-40s %-d \n", "Info: Free Energy Calc Lambda state",
+        printf("%-40s %-d\n", "Info: Free Energy Calc Lambda state",
                sys.freeEn.iState);
       }
     } else if (CheckString(line[0], "ScalePower")) {
       if (line.size() > 1) {
         sys.freeEn.scalePower = stringtoi(line[1]);
         sys.freeEn.scalePowerRead = true;
-        printf("%-40s %-4d \n", "Info: Soft-core scaling power(p)",
+        printf("%-40s %-4d\n", "Info: Soft-core scaling power(p)",
                sys.freeEn.scalePower);
       }
     } else if (CheckString(line[0], "ScaleAlpha")) {
       if (line.size() > 1) {
         sys.freeEn.scaleAlpha = stringtod(line[1]);
         sys.freeEn.scaleAlphaRead = true;
-        printf("%-40s %-4.4f \n", "Info: Soft-core softness(alpha)",
+        printf("%-40s %-4.4f\n", "Info: Soft-core softness(alpha)",
                sys.freeEn.scaleAlpha);
       }
     } else if (CheckString(line[0], "MinSigma")) {
       if (line.size() > 1) {
         sys.freeEn.scaleSigma = stringtod(line[1]);
         sys.freeEn.scaleSigmaRead = true;
-        printf("%-40s %-4.4f \n", "Info: Soft-core minimum sigma",
+        printf("%-40s %-4.4f\n", "Info: Soft-core minimum sigma",
                sys.freeEn.scaleSigma);
       }
     } else if (CheckString(line[0], "ScaleCoulomb")) {
@@ -1321,10 +1293,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         sys.freeEn.scaleCoulomb = checkBool(line[1]);
         sys.freeEn.scaleCoulombRead = true;
         if (sys.freeEn.scaleCoulomb) {
-          printf("%-40s %s \n", "Info: Soft-core for Coulombic interaction",
+          printf("%-40s %s\n", "Info: Soft-core for Coulombic interaction",
                  "Active");
         } else {
-          printf("%-40s %s \n", "Info: Soft-core for Coulombic interaction",
+          printf("%-40s %s\n", "Info: Soft-core for Coulombic interaction",
                  "Inactive");
         }
       }
@@ -1335,48 +1307,44 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         std::stringstream replicaDirectory;
         replicaDirectory << multisim->replicaOutputDirectoryPath << line[1];
         out.statistics.settings.uniqueStr.val = replicaDirectory.str();
-        printf("%-40s %-s \n", "Info: Output name",
+        printf("%-40s %-s\n", "Info: Output name",
                replicaDirectory.str().c_str());
       } else {
         out.statistics.settings.uniqueStr.val = line[1];
-        printf("%-40s %-s \n", "Info: Output name", line[1].c_str());
+        printf("%-40s %-s\n", "Info: Output name", line[1].c_str());
       }
     } else if (CheckString(line[0], "CoordinatesFreq")) {
       out.state.settings.enable = checkBool(line[1]);
-      if (line.size() == 3)
-        out.state.settings.frequency = stringtoi(line[2]);
+      if (line.size() == 3) out.state.settings.frequency = stringtoi(line[2]);
 
       if (out.state.settings.enable && (line.size() == 2))
         out.state.settings.frequency = (ulong)sys.step.total / 10;
 
       if (out.state.settings.enable) {
-        printf("%-40s %-lu \n", "Info: Coordinate frequency",
+        printf("%-40s %-lu\n", "Info: Coordinate frequency",
                out.state.settings.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Printing coordinate", "Inactive");
+        printf("%-40s %-s\n", "Info: Printing coordinate", "Inactive");
     } else if (CheckString(line[0], "RestartFreq")) {
       out.restart.settings.enable = checkBool(line[1]);
-      if (line.size() == 3)
-        out.restart.settings.frequency = stringtoi(line[2]);
+      if (line.size() == 3) out.restart.settings.frequency = stringtoi(line[2]);
 
       if (out.restart.settings.enable && (line.size() == 2))
         out.restart.settings.frequency = (ulong)sys.step.total;
 
       if (out.restart.settings.enable) {
-        printf("%-40s %-lu \n", "Info: Restart frequency",
+        printf("%-40s %-lu\n", "Info: Restart frequency",
                out.restart.settings.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Printing restart coordinate", "Inactive");
+        printf("%-40s %-s\n", "Info: Printing restart coordinate", "Inactive");
     } else if (CheckString(line[0], "CheckpointFreq")) {
       out.checkpoint.enable = checkBool(line[1]);
-      if (line.size() == 3) {
-        out.checkpoint.frequency = stringtoi(line[2]);
-      }
+      if (line.size() == 3) { out.checkpoint.frequency = stringtoi(line[2]); }
       if (out.checkpoint.enable) {
-        printf("%-40s %-lu \n", "Info: Checkpoint frequency",
+        printf("%-40s %-lu\n", "Info: Checkpoint frequency",
                out.checkpoint.frequency);
       } else {
-        printf("%-40s %-s \n", "Info: Saving checkpoint", "Inactive");
+        printf("%-40s %-s\n", "Info: Saving checkpoint", "Inactive");
       }
     } else if (CheckString(line[0], "DCDFreq")) {
       out.state_dcd.settings.enable = checkBool(line[1]);
@@ -1387,14 +1355,13 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         out.state_dcd.settings.frequency = (ulong)sys.step.total / 10;
 
       if (out.state_dcd.settings.enable) {
-        printf("%-40s %-lu \n", "Info: DCD frequency",
+        printf("%-40s %-lu\n", "Info: DCD frequency",
                out.state_dcd.settings.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Printing DCD ", "Inactive");
+        printf("%-40s %-s\n", "Info: Printing DCD ", "Inactive");
     } else if (CheckString(line[0], "ConsoleFreq")) {
       out.console.enable = checkBool(line[1]);
-      if (line.size() == 3)
-        out.console.frequency = stringtoi(line[2]);
+      if (line.size() == 3) out.console.frequency = stringtoi(line[2]);
 
       if (out.console.enable && (line.size() == 2)) {
         if (sys.step.total > 1000) {
@@ -1404,10 +1371,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         }
       }
       if (out.console.enable) {
-        printf("%-40s %-lu \n", "Info: Console output frequency",
+        printf("%-40s %-lu\n", "Info: Console output frequency",
                out.console.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Console output", "Inactive");
+        printf("%-40s %-s\n", "Info: Console output", "Inactive");
     } else if (CheckString(line[0], "BlockAverageFreq")) {
       out.statistics.settings.block.enable = checkBool(line[1]);
       if (line.size() == 3)
@@ -1417,10 +1384,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         out.statistics.settings.block.frequency = (ulong)sys.step.total / 100;
 
       if (out.statistics.settings.block.enable) {
-        printf("%-40s %-lu \n", "Info: Average output frequency",
+        printf("%-40s %-lu\n", "Info: Average output frequency",
                out.statistics.settings.block.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Average output", "Inactive");
+        printf("%-40s %-s\n", "Info: Average output", "Inactive");
     }
 #if ENSEMBLE == GCMC
     else if (CheckString(line[0], "HistogramFreq")) {
@@ -1437,10 +1404,10 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       }
 
       if (out.statistics.settings.hist.enable) {
-        printf("%-40s %-lu \n", "Info: Histogram output frequency",
+        printf("%-40s %-lu\n", "Info: Histogram output frequency",
                out.statistics.settings.hist.frequency);
       } else
-        printf("%-40s %-s \n", "Info: Histogram output", "Inactive");
+        printf("%-40s %-s\n", "Info: Histogram output", "Inactive");
     } else if (CheckString(line[0], "DistName")) {
       out.state.files.hist.histName = line[1];
     } else if (CheckString(line[0], "HistName")) {
@@ -1451,7 +1418,7 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
       out.state.files.hist.letter = line[1];
     } else if (CheckString(line[0], "SampleFreq")) {
       out.state.files.hist.stepsPerHistSample = stringtoi(line[1]);
-      printf("%-40s %-d \n", "Info: Histogram sample frequency",
+      printf("%-40s %-d\n", "Info: Histogram sample frequency",
              out.state.files.hist.stepsPerHistSample);
     }
 #endif
@@ -1488,20 +1455,20 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
         in.prng.seed = stringtoi(line[1]);
       }
       if ("INTSEED" == in.prng.kind)
-        printf("%-40s %-s \n", "Info: Constant seed", "Active");
+        printf("%-40s %-s\n", "Info: Constant seed", "Active");
       else
         printf("Warning: Constant seed set, but will be ignored.\n");
     } else if (CheckString(line[0], "ParallelTempering_Seed")) {
       in.prngParallelTempering.seed = stringtoi(line[1]);
       if ("INTSEED" == in.prngParallelTempering.kind)
-        printf("%-40s %-s \n", "Info: Constant Parallel Tempering seed",
+        printf("%-40s %-s\n", "Info: Constant Parallel Tempering seed",
                "Active");
       else
         printf("Warning: Constant Parallel Tempering seed set, but will be "
                "ignored.\n");
     } else if (CheckString(line[0], "ExpertMode")) {
       exptMode = checkBool(line[1]);
-      printf("%-40s %-s \n", "Info: Expert Mode",
+      printf("%-40s %-s\n", "Info: Expert Mode",
              exptMode ? "Active" : "Inactive");
     } else {
       std::cout << "Warning: Unknown input " << line[0] << "!" << std::endl;
@@ -1519,73 +1486,71 @@ void ConfigSetup::Init(const char *fileName, MultiSim const *const &multisim) {
 }
 
 void ConfigSetup::fillDefaults(void) {
-  if (sys.elect.method != "NoEwald") {
-    sys.elect.enable = true;
-  }
+  if (sys.elect.method != "NoEwald") { sys.elect.enable = true; }
 
   if (sys.moves.rotate == DBL_MAX) {
     sys.moves.rotate = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Rotation move frequency",
+    printf("%-40s %-4.4f\n", "Default: Rotation move frequency",
            sys.moves.rotate);
   }
 
   if (sys.moves.intraSwap == DBL_MAX) {
     sys.moves.intraSwap = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Intra-Swap move frequency",
+    printf("%-40s %-4.4f\n", "Default: Intra-Swap move frequency",
            sys.moves.intraSwap);
   }
 
   if (sys.moves.multiParticle == DBL_MAX) {
     sys.moves.multiParticle = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Multi-Particle move frequency",
+    printf("%-40s %-4.4f\n", "Default: Multi-Particle move frequency",
            sys.moves.multiParticle);
   }
 
   if (sys.moves.multiParticleBrownian == DBL_MAX) {
     sys.moves.multiParticleBrownian = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Multi-Particle Brownian move frequency",
+    printf("%-40s %-4.4f\n", "Default: Multi-Particle Brownian move frequency",
            sys.moves.multiParticleBrownian);
   }
 
   if (sys.moves.intraMemc == DBL_MAX) {
     sys.moves.intraMemc = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Intra-MEMC move frequency",
+    printf("%-40s %-4.4f\n", "Default: Intra-MEMC move frequency",
            sys.moves.intraMemc);
   }
 
   if (sys.moves.regrowth == DBL_MAX) {
     sys.moves.regrowth = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Regrowth move frequency",
+    printf("%-40s %-4.4f\n", "Default: Regrowth move frequency",
            sys.moves.regrowth);
   }
 
   if (sys.moves.crankShaft == DBL_MAX) {
     sys.moves.crankShaft = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Crank-Shaft move frequency",
+    printf("%-40s %-4.4f\n", "Default: Crank-Shaft move frequency",
            sys.moves.crankShaft);
   }
 
   if (sys.moves.intraTargetedSwap == DBL_MAX) {
     sys.moves.intraTargetedSwap = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Targeted-Swap move frequency",
+    printf("%-40s %-4.4f\n", "Default: Targeted-Swap move frequency",
            sys.moves.intraTargetedSwap);
   }
 
 #if ENSEMBLE == GEMC || ENSEMBLE == GCMC
   if (sys.moves.memc == DBL_MAX) {
     sys.moves.memc = 0.0;
-    printf("%-40s %-4.4f \n", "Default: MEMC move frequency", sys.moves.memc);
+    printf("%-40s %-4.4f\n", "Default: MEMC move frequency", sys.moves.memc);
   }
 
   if (sys.moves.neMolTransfer == DBL_MAX) {
     sys.moves.neMolTransfer = 0.0;
-    printf("%-40s %-4.4f \n", "Default: nonEq Mol-Transfer move frequency",
+    printf("%-40s %-4.4f\n", "Default: nonEq Mol-Transfer move frequency",
            sys.moves.neMolTransfer);
   }
 
   if (sys.moves.targetedSwap == DBL_MAX) {
     sys.moves.targetedSwap = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Targeted-Swap move frequency",
+    printf("%-40s %-4.4f\n", "Default: Targeted-Swap move frequency",
            sys.moves.targetedSwap);
   }
 
@@ -1617,14 +1582,14 @@ void ConfigSetup::fillDefaults(void) {
     if (!sys.neMTMCVal.readMPEnable) {
       sys.neMTMCVal.readMPEnable = true;
       sys.neMTMCVal.MPEnable = false;
-      printf("%-40s %s \n", "Default: NeMTMC Relaxing using MultiParticle",
+      printf("%-40s %s\n", "Default: NeMTMC Relaxing using MultiParticle",
              "Inactive");
     }
 
     if (!sys.neMTMCVal.readMPBEnable) {
       sys.neMTMCVal.readMPBEnable = true;
       sys.neMTMCVal.MPBEnable = false;
-      printf("%-40s %s \n",
+      printf("%-40s %s\n",
              "Default: NeMTMC Relaxing using MultiParticleBrownian",
              "Inactive");
     }
@@ -1632,38 +1597,38 @@ void ConfigSetup::fillDefaults(void) {
     if (!sys.neMTMCVal.scalePowerRead) {
       sys.neMTMCVal.scalePowerRead = true;
       sys.neMTMCVal.scalePower = 2;
-      printf("%-40s %-4d \n", "Default: Soft-core scale power(p)",
+      printf("%-40s %-4d\n", "Default: Soft-core scale power(p)",
              sys.neMTMCVal.scalePower);
     }
     if (!sys.neMTMCVal.scaleAlphaRead) {
       sys.neMTMCVal.scaleAlphaRead = true;
       sys.neMTMCVal.scaleAlpha = 0.5;
-      printf("%-40s %-4.4f \n", "Default: Soft-core softness(alpha)",
+      printf("%-40s %-4.4f\n", "Default: Soft-core softness(alpha)",
              sys.neMTMCVal.scaleAlpha);
     }
     if (!sys.neMTMCVal.scaleSigmaRead) {
       sys.neMTMCVal.scaleSigmaRead = true;
       sys.neMTMCVal.scaleSigma = 3.0;
-      printf("%-40s %-4.4f A \n", "Default: Soft-core minimum sigma",
+      printf("%-40s %-4.4f A\n", "Default: Soft-core minimum sigma",
              sys.neMTMCVal.scaleSigma);
     }
     if (!sys.neMTMCVal.scaleCoulombRead) {
       sys.neMTMCVal.scaleCoulombRead = true;
       sys.neMTMCVal.scaleCoulomb = false;
-      printf("%-40s %s A \n", "Default: Soft-core for Coulombic interaction",
+      printf("%-40s %s A\n", "Default: Soft-core for Coulombic interaction",
              "Inactive");
     }
     if (!sys.neMTMCVal.readConformationProb) {
       sys.neMTMCVal.readConformationProb = true;
       sys.neMTMCVal.conformationProb = 0.1;
-      printf("%-40s %-4.4f A \n",
+      printf("%-40s %-4.4f A\n",
              "Default: Intra-Swap/Regrowth Frequency in NeMTMC Relaxing Steps",
              sys.neMTMCVal.conformationProb);
     }
     if (!sys.neMTMCVal.readLambdaLimit) {
       sys.neMTMCVal.readLambdaLimit = true;
       sys.neMTMCVal.lambdaLimit = 0.1;
-      printf("%-40s %-4.4f A \n",
+      printf("%-40s %-4.4f A\n",
              "Default: Lambda VDW limit for Intra-Swap move in NeMTMC Relaxing "
              "Steps",
              sys.neMTMCVal.lambdaLimit);
@@ -1700,22 +1665,22 @@ void ConfigSetup::fillDefaults(void) {
 
     if (!sys.freeEn.scalePowerRead) {
       sys.freeEn.scalePower = 2;
-      printf("%-40s %-4d \n", "Default: Soft-core scale power(p)",
+      printf("%-40s %-4d\n", "Default: Soft-core scale power(p)",
              sys.freeEn.scalePower);
     }
     if (!sys.freeEn.scaleAlphaRead) {
       sys.freeEn.scaleAlpha = 0.5;
-      printf("%-40s %-4.4f \n", "Default: Soft-core softness(alpha)",
+      printf("%-40s %-4.4f\n", "Default: Soft-core softness(alpha)",
              sys.freeEn.scaleAlpha);
     }
     if (!sys.freeEn.scaleSigmaRead) {
       sys.freeEn.scaleSigma = 3.0;
-      printf("%-40s %-4.4f A \n", "Default: Soft-core minimum sigma",
+      printf("%-40s %-4.4f A\n", "Default: Soft-core minimum sigma",
              sys.freeEn.scaleSigma);
     }
     if (!sys.freeEn.scaleCoulombRead) {
       sys.freeEn.scaleCoulomb = false;
-      printf("%-40s %s A \n", "Default: Soft-core for Coulombic interaction",
+      printf("%-40s %s A\n", "Default: Soft-core for Coulombic interaction",
              "Inactive");
     }
   }
@@ -1723,20 +1688,20 @@ void ConfigSetup::fillDefaults(void) {
 
   if (sys.exclude.EXCLUDE_KIND == UINT_MAX) {
     sys.exclude.EXCLUDE_KIND = sys.exclude.EXC_ONEFOUR_KIND;
-    printf("%-40s %-s \n", "Default: Exclude", "ONE-FOUR");
+    printf("%-40s %-s\n", "Default: Exclude", "ONE-FOUR");
   }
 
   if (sys.elect.oneFourScale == DBL_MAX) {
     if (sys.elect.enable) {
       sys.elect.oneFourScale = 0.0;
-      printf("%-40s %-lf \n", "Default: Modified 1-4 Electrostatic scaling",
+      printf("%-40s %-lf\n", "Default: Modified 1-4 Electrostatic scaling",
              sys.elect.oneFourScale);
     }
   }
 
   if (in.prng.kind == "") {
     in.prng.kind = in.prng.KIND_RANDOM;
-    printf("%-40s %-s \n", "Default: Random seed", "Active");
+    printf("%-40s %-s\n", "Default: Random seed", "Active");
   }
 
 #if ENSEMBLE == GEMC
@@ -1749,7 +1714,7 @@ void ConfigSetup::fillDefaults(void) {
   if (sys.elect.method != "NoEwald" && sys.elect.readCache == false) {
     if (sys.elect.method == "EwaldCached") {
       sys.elect.method = "Ewald";
-      printf("%-40s %-s \n", "Default: Cache Ewald Fourier", "Inactive");
+      printf("%-40s %-s\n", "Default: Cache Ewald Fourier", "Inactive");
     }
   }
 
@@ -1761,7 +1726,7 @@ void ConfigSetup::fillDefaults(void) {
   if (sys.elect.enable && sys.elect.dielectric == DBL_MAX &&
       in.ffKind.isMARTINI) {
     sys.elect.dielectric = 15.0f;
-    printf("%-40s %-4.4f \n", "Default: Dielectric", sys.elect.dielectric);
+    printf("%-40s %-4.4f\n", "Default: Dielectric", sys.elect.dielectric);
   }
 
   if (sys.elect.enable) {
@@ -1777,31 +1742,31 @@ void ConfigSetup::fillDefaults(void) {
 
   if (sys.ff.cutoffLow == DBL_MAX) {
     sys.ff.cutoffLow = 0.0;
-    printf("%-40s %-4.4lf \n", "Default: Short Range Cutoff", sys.ff.cutoffLow);
+    printf("%-40s %-4.4lf\n", "Default: Short Range Cutoff", sys.ff.cutoffLow);
   }
 
   if (out.statistics.settings.block.enable && in.restart.recalcTrajectory) {
     out.statistics.settings.block.enable = false;
-    printf("%-40s \n",
+    printf("%-40s\n",
            "Warning: Average output is activated but it will be ignored.");
   }
 
   if (out.restart.settings.enable && in.restart.recalcTrajectory) {
     out.restart.settings.enable = false;
-    printf("%-40s \n", "Warning: Printing restart coordinate is activated but "
-                       "it will be ignored.");
+    printf("%-40s\n", "Warning: Printing restart coordinate is activated but "
+                      "it will be ignored.");
   }
 
   if (out.state.settings.enable && in.restart.recalcTrajectory) {
     out.state.settings.enable = false;
-    printf("%-40s \n",
+    printf("%-40s\n",
            "Warning: Printing coordinate is activated but it will be ignored.");
   }
 
   if (out.state_dcd.settings.enable && in.restart.recalcTrajectory) {
     out.state_dcd.settings.enable = false;
-    printf("%-40s \n", "Warning: Printing DCD coordinate is activated but it "
-                       "will be ignored.");
+    printf("%-40s\n", "Warning: Printing DCD coordinate is activated but it "
+                      "will be ignored.");
   }
 
   out.state.files.psf.name =
@@ -1860,7 +1825,7 @@ void ConfigSetup::verifyInputs(void) {
   }
 
   if (sys.elect.method == "NoEwald" && sys.elect.enable == true) {
-    printf("%-40s %-s \n",
+    printf("%-40s %-s\n",
            "Warning: Electrostatic calculation with Ewald method", "Inactive");
   }
 
@@ -2086,7 +2051,7 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.displace = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Displacement move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Displacement move frequency",
              sys.moves.displace);
     }
   }
@@ -2105,7 +2070,7 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.volume = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Volume move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Volume move frequency",
              sys.moves.volume);
     }
   }
@@ -2118,14 +2083,14 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.volume = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Volume move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Volume move frequency",
              sys.moves.volume);
     }
   }
 
   if (sys.neMTMCVal.enable && sys.moves.transfer == DBL_MAX) {
     sys.moves.transfer = 0.0;
-    printf("%-40s %-4.4f \n", "Default: Molecule swap move frequency",
+    printf("%-40s %-4.4f\n", "Default: Molecule swap move frequency",
            sys.moves.transfer);
   }
 
@@ -2136,7 +2101,7 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.transfer = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Molecule swap move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Molecule swap move frequency",
              sys.moves.transfer);
     }
   }
@@ -2158,7 +2123,7 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.volume = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Volume move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Volume move frequency",
              sys.moves.volume);
     }
   }
@@ -2180,7 +2145,7 @@ void ConfigSetup::verifyInputs(void) {
       exit(EXIT_FAILURE);
     } else {
       sys.moves.transfer = 0.0;
-      printf("%-40s %-4.4f \n", "ADV USER: Molecule swap move frequency",
+      printf("%-40s %-4.4f\n", "ADV USER: Molecule swap move frequency",
              sys.moves.transfer);
     }
   }
@@ -2396,19 +2361,19 @@ void ConfigSetup::verifyInputs(void) {
   if (sys.neMTMCVal.enable) {
     if (!sys.neMTMCVal.readLambdaCoulomb) {
       std::cout << "ERROR: Lambda Coulomb states were not defined for "
-                << "NeMTMC move! \n";
+                << "NeMTMC move!\n";
       exit(EXIT_FAILURE);
     }
 
     if (!sys.neMTMCVal.readLambdaVDW) {
       std::cout << "ERROR: Lambda VDW states were not defined for "
-                << "NeMTMC move! \n";
+                << "NeMTMC move!\n";
       exit(EXIT_FAILURE);
     }
 
     if (sys.neMTMCVal.lambdaCoulomb.size() != sys.neMTMCVal.lambdaVDW.size()) {
       std::cout << "ERROR: Number of Lambda states for VDW and Coulomb "
-                << "are not same in NeMTMC move! \n";
+                << "are not same in NeMTMC move!\n";
       exit(EXIT_FAILURE);
     }
 
@@ -2421,7 +2386,7 @@ void ConfigSetup::verifyInputs(void) {
       }
       if (decreasing) {
         std::cout << "ERROR: Lambda VDW values are not in increasing order "
-                  << "in NeMTMC move! \n";
+                  << "in NeMTMC move!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2435,7 +2400,7 @@ void ConfigSetup::verifyInputs(void) {
       }
       if (decreasing) {
         std::cout << "ERROR: Lambda Coulomb values are not in increasing "
-                  << "order in NeMTMC move! \n";
+                  << "order in NeMTMC move!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2443,7 +2408,7 @@ void ConfigSetup::verifyInputs(void) {
     uint last = sys.neMTMCVal.lambdaVDW.size() - 1;
     if (sys.neMTMCVal.lambdaVDW[last] < 0.9999) {
       std::cout << "ERROR: Last Lambda value for VDW is not 1.0 "
-                << "in NeMTMC move! \n";
+                << "in NeMTMC move!\n";
       exit(EXIT_FAILURE);
     }
 
@@ -2451,30 +2416,30 @@ void ConfigSetup::verifyInputs(void) {
       last = sys.neMTMCVal.lambdaCoulomb.size() - 1;
       if (sys.neMTMCVal.lambdaCoulomb[last] < 0.9999) {
         std::cout << "ERROR: Last Lambda value for Coulomb is not 1.0 "
-                  << "in NeMTMC move! \n";
+                  << "in NeMTMC move!\n";
         exit(EXIT_FAILURE);
       }
     }
 
     if (!sys.neMTMCVal.readRelaxSteps) {
-      std::cout << "ERROR: Relaxing steps was not defined for NeMTMC move! \n";
+      std::cout << "ERROR: Relaxing steps was not defined for NeMTMC move!\n";
       exit(EXIT_FAILURE);
     } else if (sys.neMTMCVal.relaxSteps == 0) {
       std::cout << "Warning: No thermal relaxing move will be performed in "
-                << "NeMTMC move! \n";
+                << "NeMTMC move!\n";
     }
 
     if (sys.neMTMCVal.conformationProb > 1.0f) {
       std::cout
-          << "ERROR: Intra-Swap/Regrowth Frequency in NeMTMC Relaxing Steps \n"
-          << "       must be less than 1.0! \n";
+          << "ERROR: Intra-Swap/Regrowth Frequency in NeMTMC Relaxing Steps\n"
+          << "       must be less than 1.0!\n";
       exit(EXIT_FAILURE);
     }
 
     if (sys.neMTMCVal.lambdaLimit > 1.0f) {
       std::cout << "ERROR: Lambda VDW limit for Intra-Swap move in NeMTMC "
-                   "Relaxing Steps \n"
-                << "       must be less than 1.0! \n";
+                   "Relaxing Steps\n"
+                << "       must be less than 1.0!\n";
       exit(EXIT_FAILURE);
     }
 
@@ -2483,7 +2448,7 @@ void ConfigSetup::verifyInputs(void) {
         std::cout
             << "ERROR: Multi-Particle and Multi-Particle Brownian moves cannot "
                "\n"
-            << "       be used simultaneously in NeMTMC Relaxing Steps! \n";
+            << "       be used simultaneously in NeMTMC Relaxing Steps!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2492,7 +2457,7 @@ void ConfigSetup::verifyInputs(void) {
       if (sys.moves.displace < 1e-7 || sys.moves.rotate < 1e-7) {
         std::cout
             << "ERROR: Displacement and rotation move must be activated in "
-            << "NeMTMC Relaxing Steps! \n";
+            << "NeMTMC Relaxing Steps!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2500,12 +2465,12 @@ void ConfigSetup::verifyInputs(void) {
     if (sys.moves.multiParticleEnabled) {
       if (sys.moves.multiParticle < 1e-7 && sys.neMTMCVal.MPEnable) {
         std::cout << "ERROR: Multi-Particle move must be activated in "
-                  << "NeMTMC Relaxing Steps! \n";
+                  << "NeMTMC Relaxing Steps!\n";
         exit(EXIT_FAILURE);
       }
       if (sys.moves.multiParticleBrownian < 1e-7 && sys.neMTMCVal.MPBEnable) {
         std::cout << "ERROR: Multi-Particle Brownian move must be activated in "
-                  << "NeMTMC Relaxing Steps! \n";
+                  << "NeMTMC Relaxing Steps!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2524,19 +2489,19 @@ void ConfigSetup::verifyInputs(void) {
 
     if (!sys.freeEn.readLambdaCoulomb) {
       std::cout << "ERROR: Lambda Coulomb states were not defined for "
-                << "Free Energy Calculation! \n";
+                << "Free Energy Calculation!\n";
       exit(EXIT_FAILURE);
     }
 
     if (!sys.freeEn.readLambdaVDW) {
       std::cout << "ERROR: Lambda VDW states were not defined for "
-                << "Free Energy Calculation! \n";
+                << "Free Energy Calculation!\n";
       exit(EXIT_FAILURE);
     }
 
     if (sys.freeEn.lambdaCoulomb.size() != sys.freeEn.lambdaVDW.size()) {
       std::cout << "ERROR: Number of Lambda states for VDW and Coulomb "
-                << "are not same in Free Energy Calculation! \n";
+                << "are not same in Free Energy Calculation!\n";
       exit(EXIT_FAILURE);
     }
 
@@ -2549,7 +2514,7 @@ void ConfigSetup::verifyInputs(void) {
       }
       if (decreasing) {
         std::cout << "ERROR: Lambda VDW values are not in increasing order "
-                  << "in Free Energy Calculation! \n";
+                  << "in Free Energy Calculation!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2563,7 +2528,7 @@ void ConfigSetup::verifyInputs(void) {
       }
       if (decreasing) {
         std::cout << "ERROR: Lambda Coulomb values are not in increasing "
-                  << "order in Free Energy Calculation! \n";
+                  << "order in Free Energy Calculation!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2571,7 +2536,7 @@ void ConfigSetup::verifyInputs(void) {
     uint last = sys.freeEn.lambdaVDW.size() - 1;
     if (sys.freeEn.lambdaVDW[last] < 0.9999) {
       std::cout << "ERROR: Last Lambda value for VDW is not 1.0 "
-                << "in Free Energy Calculation! \n";
+                << "in Free Energy Calculation!\n";
       exit(EXIT_FAILURE);
     }
 
@@ -2579,37 +2544,37 @@ void ConfigSetup::verifyInputs(void) {
       last = sys.freeEn.lambdaCoulomb.size() - 1;
       if (sys.freeEn.lambdaCoulomb[last] < 0.9999) {
         std::cout << "ERROR: Last Lambda value for Coulomb is not 1.0 "
-                  << "in Free Energy Calculation! \n";
+                  << "in Free Energy Calculation!\n";
         exit(EXIT_FAILURE);
       }
     }
 
     if (sys.freeEn.lambdaVDW.size() <= sys.freeEn.iState) {
       std::cout << "ERROR: Initial Lambda state is not valid "
-                << "in Free Energy Calculation! \n";
+                << "in Free Energy Calculation!\n";
       exit(EXIT_FAILURE);
     }
 
     if (!sys.freeEn.freqRead) {
       std::cout << "ERROR: Frequency of Free Energy Calculation was "
-                << "not defined! \n";
+                << "not defined!\n";
       exit(EXIT_FAILURE);
     }
     if (!sys.freeEn.molTypeRead) {
       std::cout << "ERROR: Molecule Type for Free Energy Calculation was "
-                << "not defined! \n";
+                << "not defined!\n";
       exit(EXIT_FAILURE);
     }
     if (!sys.freeEn.molIndexRead) {
       std::cout << "ERROR: Molecule Index for Free Energy Calculation was "
-                << "not defined! \n";
+                << "not defined!\n";
       exit(EXIT_FAILURE);
     }
 #if ENSEMBLE == NVT
     if (sys.step.pressureCalc) {
       if ((sys.freeEn.frequency % sys.step.pressureCalcFreq) != 0) {
         std::cout << "ERROR: Free Energy calculation Freq must be common "
-                  << "number of Pressure calculation freq! \n";
+                  << "number of Pressure calculation freq!\n";
         exit(EXIT_FAILURE);
       }
     }
@@ -2660,8 +2625,7 @@ void ConfigSetup::verifyInputs(void) {
     if (out.state.settings.frequency < out.restart.settings.frequency) {
       if ((out.restart.settings.frequency % out.state.settings.frequency) !=
           0) {
-        std::cout
-            << "ERROR: Coordinate frequency must be common multiple of \n";
+        std::cout << "ERROR: Coordinate frequency must be common multiple of\n";
         std::cout << "       restart corrdinate frequency !\n";
         exit(EXIT_FAILURE);
       }
@@ -2669,7 +2633,7 @@ void ConfigSetup::verifyInputs(void) {
       if ((out.state.settings.frequency % out.restart.settings.frequency) !=
           0) {
         std::cout << "ERROR: Restart coordinate frequency must be common "
-                     "multiple of \n";
+                     "multiple of\n";
         std::cout << "       corrdinate frequency !\n";
         exit(EXIT_FAILURE);
       }
@@ -2680,7 +2644,7 @@ void ConfigSetup::verifyInputs(void) {
     if (out.state_dcd.settings.frequency < out.restart.settings.frequency) {
       if ((out.restart.settings.frequency % out.state_dcd.settings.frequency) !=
           0) {
-        std::cout << "ERROR: DCD frequency must be common multiple of \n";
+        std::cout << "ERROR: DCD frequency must be common multiple of\n";
         std::cout << "       restart corrdinate frequency !\n";
         exit(EXIT_FAILURE);
       }
@@ -2688,7 +2652,7 @@ void ConfigSetup::verifyInputs(void) {
       if ((out.state_dcd.settings.frequency % out.restart.settings.frequency) !=
           0) {
         std::cout << "ERROR: Restart coordinate frequency must be common "
-                     "multiple of \n";
+                     "multiple of\n";
         std::cout << "       DCD frequency !\n";
         exit(EXIT_FAILURE);
       }

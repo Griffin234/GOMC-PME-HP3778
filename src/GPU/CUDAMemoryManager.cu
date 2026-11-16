@@ -3,9 +3,9 @@ GPU OPTIMIZED MONTE CARLO (GOMC) Copyright (C) GOMC Group
 A copy of the MIT License can be found in License.txt with this program or at
 <https://opensource.org/licenses/MIT>.
 ******************************************************************************/
+#ifdef GOMC_CUDA
 #include "CUDAMemoryManager.cuh"
 
-#ifdef GOMC_CUDA
 long long CUDAMemoryManager::totalAllocatedBytes = 0;
 std::unordered_map<void *, std::pair<unsigned int, std::string>>
     CUDAMemoryManager::allocatedPointers;

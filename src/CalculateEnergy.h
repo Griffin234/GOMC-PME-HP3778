@@ -59,9 +59,12 @@ public:
                            BoxDimensions const &boxAxes, const uint box);
 
   //! Calculates force of a single box in the system
+  //! We also calculate the LJ and real electrostatic energy term for new
+  //! coordinates, but not the old coordinates, hence the flag.
   SystemPotential BoxForce(SystemPotential potential, XYZArray const &coords,
                            XYZArray &atomForce, XYZArray &molForce,
-                           BoxDimensions const &boxAxes, const uint box);
+                           BoxDimensions const &boxAxes, int moveType,
+                           const uint box, const bool calcEnergies = true);
 
   //! Calculate force and virial for the box
   Virial VirialCalc(const uint box);
@@ -151,7 +154,7 @@ public:
   double IntraEnergy_1_4(const double distSq, const uint atom1,
                          const uint atom2, const uint molIndex) const;
   //! Calculate Torque
-  void CalculateTorque(std::vector<uint> &moleculeIndex,
+  void CalculateTorque(std::vector<int> &moleculeIndex,
                        XYZArray const &coordinates, XYZArray const &com,
                        XYZArray const &atomForce, XYZArray const &atomForceRec,
                        XYZArray &molTorque, const uint box);

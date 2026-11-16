@@ -6,10 +6,8 @@ A copy of the MIT License can be found in License.txt with this program or at
 #ifndef XYZ_ARRAY_H
 #define XYZ_ARRAY_H
 
-#include <stdio.h>  //for memset, memcpy, etc.
-#include <string.h> //for memset, memcpy, etc.
-
 #include <algorithm> //for swap pre-c++11 compilers
+#include <cstring>   //for memset, memcpy, etc.
 #include <utility>   //for swap (most modern compilers)
 
 #include "BasicTypes.h"
@@ -27,18 +25,19 @@ public:
   friend class BoxDimensions;
 
   // Declare a set of coordinates with no data.
-  XYZArray(void) : x(NULL), y(NULL), z(NULL), count(0), allocDone(false) {}
+  XYZArray(void)
+      : x(nullptr), y(nullptr), z(nullptr), count(0), allocDone(false) {}
 
   // Declare a set of coordinates of an explicit size.
-  explicit XYZArray(const uint n) {
+  explicit XYZArray(const uint n, bool initialize = true) {
     allocDone = false;
-    Init(n);
+    Init(n, initialize);
   }
 
   // Create a struct of arrays from an array of structs
   XYZArray(const std::vector<XYZ> &AOS) {
     allocDone = false;
-    Init(AOS.size());
+    Init(AOS.size(), false);
     for (int i = 0; i < AOS.size(); ++i) {
       x[i] = AOS[i].x;
       y[i] = AOS[i].y;
@@ -56,9 +55,9 @@ public:
   // Wipe out my member arrays
   void Uninit();
 
-  // Helper function to allocated memory to coordinate arrays.
+  // Helper function to allocate memory to coordinate arrays.
   // Note: this has been laid out as subarrays of master array.
-  void Init(const uint n);
+  void Init(const uint n, bool initialize = true);
 
   // Returns number of elements
   uint Count() const { return count; }
@@ -342,11 +341,11 @@ inline void swap(XYZArray &a1, XYZArray &a2) {
 }
 
 inline void XYZArray::Uninit() {
-  if (x != NULL)
+  if (x != nullptr)
     delete[] x;
-  if (y != NULL)
+  if (y != nullptr)
     delete[] y;
-  if (z != NULL)
+  if (z != nullptr)
     delete[] z;
   allocDone = false;
 }
@@ -370,31 +369,31 @@ inline void XYZArray::ResetRange(const uint val, const uint stop) {
 #pragma omp parallel sections default(none) firstprivate(val, stop)
   {
 #pragma omp section
-    memset(this->x, val, stop * sizeof(double));
+    std::memset(this->x, val, stop * sizeof(double));
 #pragma omp section
-    memset(this->y, val, stop * sizeof(double));
+    std::memset(this->y, val, stop * sizeof(double));
 #pragma omp section
-    memset(this->z, val, stop * sizeof(double));
+    std::memset(this->z, val, stop * sizeof(double));
   }
 #else
-  memset(this->x, val, stop * sizeof(double));
-  memset(this->y, val, stop * sizeof(double));
-  memset(this->z, val, stop * sizeof(double));
+  std::memset(this->x, val, stop * sizeof(double));
+  std::memset(this->y, val, stop * sizeof(double));
+  std::memset(this->z, val, stop * sizeof(double));
 #endif
 }
 
 inline void XYZArray::Reset() { ResetRange(0, count); }
 
-inline void XYZArray::Init(const uint n) {
+inline void XYZArray::Init(const uint n, bool initialize) {
   count = n;
 
   if (allocDone) {
     allocDone = false;
-    if (x != NULL)
+    if (x != nullptr)
       delete[] x;
-    if (y != NULL)
+    if (y != nullptr)
       delete[] y;
-    if (z != NULL)
+    if (z != nullptr)
       delete[] z;
   }
 
@@ -402,12 +401,13 @@ inline void XYZArray::Init(const uint n) {
   y = new double[n];
   z = new double[n];
 
-  for (uint i = 0; i < n; i++) {
-    x[i] = 0.0;
-    y[i] = 0.0;
-    z[i] = 0.0;
+  // Initialize is the default. Can skip this when we are setting the values in
+  // the array right after creating it.
+  if (initialize) {
+    std::memset(this->x, 0, n * sizeof(double));
+    std::memset(this->y, 0, n * sizeof(double));
+    std::memset(this->z, 0, n * sizeof(double));
   }
-
   allocDone = true;
 }
 

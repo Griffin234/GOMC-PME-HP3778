@@ -84,12 +84,12 @@ void FFParticle::Init(ff_setup::Particle const &mie,
 
 #ifdef GOMC_CUDA
   double diElectric_1 = 1.0 / forcefield.dielectric;
-  InitGPUForceField(*varCUDA, sigmaSq, epsilon_cn, n, forcefield.vdwKind,
-                    forcefield.isMartini, count, forcefield.rCut,
-                    forcefield.rCutSq, forcefield.rCutCoulomb,
-                    forcefield.rCutCoulombSq, forcefield.rCutLow,
-                    forcefield.rswitch, forcefield.alpha, forcefield.alphaSq,
-                    forcefield.ewald, diElectric_1);
+  InitGPUForceField(
+      varCUDA, sigmaSq, epsilon_cn, n, forcefield.vdwKind, forcefield.isMartini,
+      count, forcefield.rCut, forcefield.rCutSq, forcefield.rCutCoulomb,
+      forcefield.rCutCoulombSq, forcefield.rCutLow, forcefield.rswitch,
+      forcefield.alpha, forcefield.alphaSq, forcefield.ewald, diElectric_1);
+  InitNeighborListVarsCUDA(varCUDA);
 #endif
 }
 
@@ -388,14 +388,12 @@ inline double FFParticle::CalcCoulomb(const double distSq, const uint kind1,
 inline double FFParticle::CalcCoulomb(const double distSq,
                                       const double qi_qj_Fact,
                                       const uint b) const {
+  double dist = sqrt(distSq);
+  double val = qi_qj_Fact;
   if (forcefield.ewald) {
-    double dist = sqrt(distSq);
-    double val = forcefield.alpha[b] * dist;
-    return qi_qj_Fact * erfc(val) / dist;
-  } else {
-    double dist = sqrt(distSq);
-    return qi_qj_Fact / dist;
+    val *= erfc(forcefield.alpha[b] * dist);
   }
+  return val / dist;
 }
 
 inline double FFParticle::CalcCoulombVir(const double distSq, const uint kind1,
@@ -431,17 +429,16 @@ inline double FFParticle::CalcCoulombVir(const double distSq, const uint kind1,
 inline double FFParticle::CalcCoulombVir(const double distSq,
                                          const double qi_qj,
                                          const uint b) const {
+  const double dist = std::sqrt(distSq);
   if (forcefield.ewald) {
-    double dist = sqrt(distSq);
     // M_2_SQRTPI is 2/sqrt(PI)
-    double constValue = forcefield.alpha[b] * M_2_SQRTPI;
-    double expConstValue = exp(-1.0 * forcefield.alphaSq[b] * distSq);
-    double temp = 1.0 - erf(forcefield.alpha[b] * dist);
-    return qi_qj * (temp / dist + constValue * expConstValue) / distSq;
+    double alphaValue = forcefield.alpha[b] * M_2_SQRTPI;
+    double expValue = std::exp(-forcefield.alphaSq[b] * distSq);
+    double erfcValue = std::erfc(forcefield.alpha[b] * dist) / dist;
+    return qi_qj * (alphaValue * expValue + erfcValue) / distSq;
   } else {
-    double dist = sqrt(distSq);
-    double result = qi_qj / (distSq * dist);
-    return result;
+    return qi_qj / (distSq * dist);
+
   }
 }
 

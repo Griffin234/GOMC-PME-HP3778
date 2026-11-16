@@ -29,5 +29,5 @@ private:
       allocatedPointers;
 };
 
-#endif
+#endif /*GOMC_CUDA*/
 #endif /*CUDA_MEMORY_MANAGER_H*/

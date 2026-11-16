@@ -13,16 +13,21 @@ A copy of the MIT License can be found in License.txt with this program or at
 #include "BoxDimensions.h"
 #include "BoxDimensionsNonOrth.h"
 #include "EnsemblePreprocessor.h"
+#include "Forcefield.h"
 
 class Molecules;
 class XYZArray;
 class BoxDimensions;
 class MoleculeLookup;
+class Forcefield;
 
 class CellList {
 public:
-  explicit CellList(const Molecules &mols, BoxDimensions &dims);
+  explicit CellList(Forcefield &forcefield, const Molecules &mols,
+                    BoxDimensions &dims);
   CellList(const CellList &other);
+  ~CellList();
+  void Init();
   void SetCutoff();
 
   void RemoveMol(const int molIndex, const int box, const XYZArray &pos);
@@ -60,7 +65,10 @@ public:
 
   // GJS - Compare this cell list with another for evaluating parallel tempering
   // correctness
-  bool CompareCellList(CellList &other, int coordinateSize);
+  // LJS - This function doesn't seem to be called anywhere in the GOMC code and
+  // is clearly broken, so commenting out until it is needed -- See the .cpp
+  // file for more details
+  // bool CompareCellList(CellList &other, int coordinateSize);
   void PrintList();
 
   std::vector<int> list;
@@ -72,22 +80,23 @@ private:
 
   // Resize all boxes to match current axes
   void ResizeGrid(const BoxDimensions &dims);
-  // Resize one boxes to match current axes
+  // Resize one box to match current axes
   void ResizeGridBox(const BoxDimensions &dims, const uint b);
   // Rebuild head/neighbor lists in box b to match current grid
-  void RebuildNeighbors(int b);
+  void RebuildNeighbors(const uint b);
 
   XYZ cellSize[BOX_TOTAL];
   int edgeCells[BOX_TOTAL][3];
-  const Molecules *mols;
-  BoxDimensions *dimensions;
+  const Molecules &mols;
+  BoxDimensions &dimensions;
   double cutoff[BOX_TOTAL];
   bool isBuilt;
+  const Forcefield &ff;
 };
 
 inline int CellList::PositionToCell(const XYZ &posRef, int box) const {
-  // Transfer to unslant coordinate to find the neighbor
-  XYZ pos = dimensions->TransformUnSlant(posRef, box);
+  // Transfer to unslant coordinates to find the neighbor
+  XYZ pos = dimensions.TransformUnSlant(posRef, box);
   int x = (int)(pos.x / cellSize[box].x);
   int y = (int)(pos.y / cellSize[box].y);
   int z = (int)(pos.z / cellSize[box].z);
@@ -148,7 +157,7 @@ inline CellList::Neighbors CellList::EnumerateLocal(int cell, int box) const {
 #ifndef NDEBUG
   if (cell >= static_cast<int>(head[box].size())) {
     std::cout << "CellList.h:162: box " << box << ", Out of cell" << std::endl;
-    std::cout << "AxisDimensions: " << dimensions->GetAxis(box) << std::endl;
+    std::cout << "AxisDimensions: " << dimensions.GetAxis(box) << std::endl;
   }
 #endif
   return CellList::Neighbors(list, head[box], neighbors[box][cell]);
@@ -160,7 +169,7 @@ inline CellList::Neighbors CellList::EnumerateLocal(const XYZ &pos,
 #ifndef NDEBUG
   if (cell >= static_cast<int>(head[box].size())) {
     std::cout << "CellList.h:172: box " << box << ", pos: " << pos << std::endl;
-    std::cout << "AxisDimensions: " << dimensions->GetAxis(box) << std::endl;
+    std::cout << "AxisDimensions: " << dimensions.GetAxis(box) << std::endl;
   }
 #endif
   return EnumerateLocal(cell, box);
